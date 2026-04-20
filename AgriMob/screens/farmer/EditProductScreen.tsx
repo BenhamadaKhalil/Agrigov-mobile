@@ -1,4 +1,4 @@
-// screens/farmer/AddProductScreen.tsx
+// screens/farmer/EditProductScreen.tsx
 
 import React, { useState, useEffect } from "react";
 import {
@@ -16,15 +16,13 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import * as ImagePicker from "expo-image-picker";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { InventoryStackParamList } from "../../navigation/FarmerTabNavigator";
+import * as ImagePicker from "expo-image-picker";
 import { farmerApi } from "../../apis/farmer.api";
 import { productApi } from "../../apis/product.api";
 
-const TOTAL_STEPS   = 4;
-const CURRENT_STEP  = 2;
+type EditProductRouteProp = RouteProp<InventoryStackParamList, "EditProduct">;
 
 const SEASONS = [
   { key: "winter", label: "Winter", icon: "ac-unit" as const },
@@ -34,8 +32,6 @@ const SEASONS = [
 ];
 
 interface FormState {
-  ministry_product_id: number | null;
-  farm_id: number | null;
   description: string;
   season: string;
   unit_price: string;
@@ -43,8 +39,6 @@ interface FormState {
 }
 
 const INITIAL_FORM: FormState = {
-  ministry_product_id: null,
-  farm_id: null,
   description: "",
   season: "summer",
   unit_price: "",
@@ -61,42 +55,40 @@ const Field = ({ label, icon, children }: { label: string; icon?: React.Componen
   </View>
 );
 
-export default function AddProductScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<InventoryStackParamList>>();
+export default function EditProductScreen() {
+  const route = useRoute<EditProductRouteProp>();
+  const { productId } = route.params;
+  const navigation = useNavigation();
 
   const [form, setForm]     = useState<FormState>(INITIAL_FORM);
   const [images, setImages] = useState<string[]>([]);
+  const [existingImages, setExistingImages] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
+  const [loadingInit, setLoadingInit] = useState(true);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
-
-  const [farms, setFarms] = useState<any[]>([]);
-  const [ministryProducts, setMinistryProducts] = useState<any[]>([]);
-  const [loadingInitial, setLoadingInitial] = useState(true);
+  
+  const [productData, setProductData] = useState<any>(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const [fData, mpData] = await Promise.all([
-          farmerApi.myFarms(),
-          productApi.ministryProducts(),
-        ]);
-        const fResults = Array.isArray(fData) ? fData : (fData as any)?.results || [];
-        const mpResults = Array.isArray(mpData) ? mpData : (mpData as any)?.results || [];
-        setFarms(fResults);
-        setMinistryProducts(mpResults);
-        
-        setForm(prev => ({
-          ...prev, 
-          farm_id: fResults.length === 1 ? fResults[0].id : null,
-          ministry_product_id: mpResults.length === 1 ? mpResults[0].id : null
-        }));
-      } catch (err) {
-        Alert.alert("Error", "Could not load data.");
+        const product: any = await productApi.detail(productId);
+        setProductData(product);
+        setForm({
+          description: product.description || "",
+          season:      product.season || "summer",
+          unit_price:  String(product.unit_price || ""),
+          stock:       String(product.stock || ""),
+        });
+        if (product.images) setExistingImages(product.images);
+      } catch {
+        Alert.alert("Error", "Could not load product details.");
+        navigation.goBack();
       } finally {
-        setLoadingInitial(false);
+        setLoadingInit(false);
       }
     })();
-  }, []);
+  }, [productId]);
 
   const update = <K extends keyof FormState>(key: K) => (val: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: val }));
@@ -108,61 +100,54 @@ export default function AddProductScreen() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
       quality: 0.8,
-      selectionLimit: 5 - images.length,
+      selectionLimit: 5 - existingImages.length,
     });
-    if (!result.canceled) setImages((prev) => [...prev, ...result.assets.map((a) => a.uri)].slice(0, 5));
+    if (!result.canceled) {
+      setImages((prev) => [...prev, ...result.assets.map((a: any) => a.uri)].slice(0, 5 - existingImages.length));
+    }
   };
 
-  const removeImage = (uri: string) => setImages((prev) => prev.filter((u) => u !== uri));
+  const removeNewImage = (uri: string) => setImages((prev) => prev.filter((u) => u !== uri));
 
   const validate = (): boolean => {
     const newErrors: typeof errors = {};
-    if (!form.ministry_product_id) newErrors.ministry_product_id = "Please select a product";
-    if (!form.farm_id) newErrors.farm_id = "Please select a farm";
-    if (!form.description.trim()) newErrors.description = "Description is required";
+    if (!form.description.trim()) newErrors.description = "Required";
     if (!form.stock.trim() || isNaN(Number(form.stock)) || Number(form.stock) < 0) newErrors.stock = "Enter a valid stock";
     if (!form.unit_price.trim() || isNaN(Number(form.unit_price)) || Number(form.unit_price) <= 0) newErrors.unit_price = "Enter a valid price";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const buildFormData = (): FormData => {
-    const fd = new FormData();
-    if (form.ministry_product_id) fd.append("ministry_product_id", form.ministry_product_id.toString());
-    if (form.farm_id) fd.append("farm_id", form.farm_id.toString());
-    fd.append("description", form.description);
-    fd.append("season", form.season);
-    fd.append("stock", form.stock);
-    fd.append("unit_price", form.unit_price);
-
-    images.forEach((uri, i) => {
-      fd.append("images", { uri, name: `product_image_${i}.jpg`, type: "image/jpeg" } as any);
-    });
-    return fd;
-  };
-
-  const handlePublish = async () => {
+  const handleSave = async () => {
     if (!validate()) return;
     setSaving(true);
     try {
-      await farmerApi.createProduct(buildFormData());
-      Alert.alert("Published!", "Your product is now live.", [{ text: "OK", onPress: () => navigation.goBack() }]);
+      const fd = new FormData();
+      fd.append("description", form.description);
+      fd.append("season", form.season);
+      fd.append("stock", form.stock);
+      fd.append("unit_price", form.unit_price);
+
+      images.forEach((uri, i) => {
+        fd.append("images", { uri, name: `edit_image_${i}.jpg`, type: "image/jpeg" } as any);
+      });
+
+      await farmerApi.updateProduct(productId, fd);
+      Alert.alert("Saved", "Product updated successfully.", [{ text: "OK", onPress: () => navigation.goBack() }]);
     } catch (e: any) {
-      Alert.alert("Error", e?.message ?? "Could not publish product.");
+      Alert.alert("Error", e?.message ?? "Could not save changes.");
     } finally {
       setSaving(false);
     }
   };
 
-  if (loadingInitial) {
+  if (loadingInit) {
     return (
       <SafeAreaView style={[styles.safe, { justifyContent: "center", alignItems: "center" }]}>
         <ActivityIndicator size="large" color="#047857" />
       </SafeAreaView>
     );
   }
-
-  const progress = (CURRENT_STEP / TOTAL_STEPS) * 100;
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -173,42 +158,15 @@ export default function AddProductScreen() {
               <MaterialIcons name="arrow-back" size={18} color="#fff" />
             </TouchableOpacity>
             <View style={{ flex: 1, marginLeft: 10 }}>
-              <Text style={styles.heroLabel}>DIGITAL HARVEST</Text>
-              <Text style={styles.heroTitle}>Add New Product</Text>
-              <Text style={styles.heroSub}>Step {CURRENT_STEP} of {TOTAL_STEPS}</Text>
+              <Text style={styles.heroLabel}>EDIT PRODUCT</Text>
+              <Text style={styles.heroTitle}>{productData?.ministry_product?.name || "Product"}</Text>
+              <Text style={styles.heroSub}>{productData?.farm?.name || "Farm"}</Text>
             </View>
-            <Text style={styles.pctLabel}>{Math.round(progress)}%</Text>
-          </View>
-          <View style={styles.stepsRow}>
-            {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-              <View key={i} style={[styles.stepSeg, i < CURRENT_STEP ? styles.stepFilled : styles.stepEmpty]} />
-            ))}
           </View>
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
-          
           <View style={styles.card}>
-            <Text style={styles.fieldLabel}>Official Ministry Product</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-              {ministryProducts.map((mp) => (
-                <TouchableOpacity key={mp.id} style={[styles.chip, form.ministry_product_id === mp.id && styles.chipActive]} onPress={() => update("ministry_product_id")(mp.id)}>
-                  <Text style={[styles.chipText, form.ministry_product_id === mp.id && styles.chipTextActive]}>{mp.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            {errors.ministry_product_id && <Text style={styles.errMsg}>{errors.ministry_product_id}</Text>}
-
-            <Text style={styles.fieldLabel}>Select Farm</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-              {farms.map((f) => (
-                <TouchableOpacity key={f.id} style={[styles.chip, form.farm_id === f.id && styles.chipActive]} onPress={() => update("farm_id")(f.id)}>
-                  <Text style={[styles.chipText, form.farm_id === f.id && styles.chipTextActive]}>{f.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            {errors.farm_id && <Text style={styles.errMsg}>{errors.farm_id}</Text>}
-
             <Field label="Description" icon="description">
               <TextInput style={[styles.input, errors.description && styles.inputError]} placeholder="Describe your product..." placeholderTextColor="#c4c4c4" value={form.description} onChangeText={update("description")} />
             </Field>
@@ -237,12 +195,18 @@ export default function AddProductScreen() {
 
           <View style={styles.card}>
             <Text style={styles.fieldLabel}>Product Images</Text>
-            {images.length > 0 && (
+            {(existingImages.length > 0 || images.length > 0) && (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.imagePreviewRow}>
+                {existingImages.map((img: any) => (
+                  <View key={img.id} style={styles.imageThumbWrap}>
+                    <Image source={{ uri: img.image }} style={styles.imageThumb} />
+                    <View style={styles.existingTag}><Text style={styles.existingTagText}>Old</Text></View>
+                  </View>
+                ))}
                 {images.map((uri) => (
                   <View key={uri} style={styles.imageThumbWrap}>
                     <Image source={{ uri }} style={styles.imageThumb} />
-                    <TouchableOpacity style={styles.removeImageBtn} onPress={() => removeImage(uri)}>
+                    <TouchableOpacity style={styles.removeImageBtn} onPress={() => removeNewImage(uri)}>
                       <MaterialIcons name="close" size={12} color="#fff" />
                     </TouchableOpacity>
                   </View>
@@ -253,19 +217,15 @@ export default function AddProductScreen() {
               <View style={styles.uploadIconCircle}>
                 <MaterialIcons name="add-a-photo" size={22} color="#0df20d" />
               </View>
-              <Text style={styles.uploadTitle}>{images.length > 0 ? `${images.length}/5 photos added` : "Upload Images"}</Text>
+              <Text style={styles.uploadTitle}>{images.length + existingImages.length > 0 ? `${images.length + existingImages.length}/5 photos added` : "Upload Images"}</Text>
               <Text style={styles.uploadSub}>Tap to pick from gallery · Max 5 photos</Text>
             </TouchableOpacity>
-          </View>
-
-          <View style={styles.warningBox}>
-            <MaterialIcons name="info-outline" size={16} color="#c05c00" />
-            <Text style={styles.warningText}>Price should be close to the official market price. Listings more than 20% above market are flagged for review.</Text>
+            {images.length > 0 && <Text style={styles.noteText}>Note: Uploading new images will replace ALL old images.</Text>}
           </View>
 
           <View style={styles.btnRow}>
-            <TouchableOpacity style={styles.primaryBtn} onPress={handlePublish} disabled={saving}>
-              {saving ? <ActivityIndicator size="small" color="#065f46" /> : <><Text style={styles.primaryText}>Publish Product</Text><MaterialIcons name="arrow-forward" size={16} color="#065f46" /></>}
+            <TouchableOpacity style={styles.primaryBtn} onPress={handleSave} disabled={saving}>
+              {saving ? <ActivityIndicator size="small" color="#fff" /> : <><Text style={styles.primaryText}>Save Changes</Text></>}
             </TouchableOpacity>
           </View>
           <View style={{ height: 30 }} />
@@ -283,19 +243,9 @@ const styles = StyleSheet.create({
   heroLabel: { fontSize: 9, fontWeight: "700", color: "#a7f3d0", letterSpacing: 1, marginBottom: 1 },
   heroTitle: { fontSize: 16, fontWeight: "800", color: "#fff", letterSpacing: -0.3 },
   heroSub: { fontSize: 11, color: "#a7f3d0", marginTop: 1 },
-  pctLabel: { fontSize: 14, fontWeight: "800", color: "#0df20d" },
-  stepsRow: { flexDirection: "row", gap: 5 },
-  stepSeg: { flex: 1, height: 4, borderRadius: 10 },
-  stepFilled: { backgroundColor: "#0df20d" },
-  stepEmpty: { backgroundColor: "rgba(255,255,255,0.2)" },
   scrollContent: { padding: 14 },
   card: { backgroundColor: "#fff", borderRadius: 16, padding: 14, borderWidth: 0.5, borderColor: "#e4efe4", marginBottom: 12 },
   fieldLabel: { fontSize: 9, fontWeight: "700", color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 6, marginTop: 10 },
-  chipRow: { gap: 7, paddingBottom: 2 },
-  chip: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 20, backgroundColor: "#f5f8f5", borderWidth: 0.5, borderColor: "#e4efe4" },
-  chipActive: { backgroundColor: "#047857", borderColor: "#047857" },
-  chipText: { fontSize: 12, fontWeight: "700", color: "#6b7280" },
-  chipTextActive: { color: "#fff" },
   fieldWrap: { marginTop: 4 },
   inputRow: { flexDirection: "row", alignItems: "center", height: 46, backgroundColor: "#f9faf9", borderRadius: 12, paddingHorizontal: 12, borderWidth: 1, borderColor: "#f1f5f1" },
   input: { flex: 1, fontSize: 14, fontWeight: "600", color: "#374151", marginLeft: 8 },
@@ -310,15 +260,14 @@ const styles = StyleSheet.create({
   imageThumbWrap: { width: 70, height: 70, borderRadius: 12, overflow: "hidden" },
   imageThumb: { width: "100%", height: "100%", backgroundColor: "#e5e7eb" },
   removeImageBtn: { position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: 10, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center" },
+  existingTag: { position: "absolute", bottom: 4, left: 4, backgroundColor: "rgba(0,0,0,0.5)", paddingHorizontal: 4, borderRadius: 4 },
+  existingTagText: { color: "#fff", fontSize: 8, fontWeight: "bold" },
   uploadBox: { height: 90, borderRadius: 14, borderWidth: 1.5, borderColor: "#e4efe4", borderStyle: "dashed", backgroundColor: "#f9faf9", alignItems: "center", justifyContent: "center" },
   uploadIconCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#ecfdf5", alignItems: "center", justifyContent: "center", marginBottom: 6 },
   uploadTitle: { fontSize: 12, fontWeight: "700", color: "#374151" },
   uploadSub: { fontSize: 10, color: "#9ca3af", marginTop: 2 },
-  warningBox: { flexDirection: "row", backgroundColor: "#fffbeb", padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "#fef3c7", marginBottom: 20, gap: 10 },
-  warningText: { flex: 1, fontSize: 11, color: "#92400e", lineHeight: 16 },
+  noteText: { fontSize: 10, color: "#9ca3af", marginTop: 8, fontStyle: "italic" },
   btnRow: { flexDirection: "row", gap: 10 },
-  secondaryBtn: { flex: 1, height: 50, borderRadius: 14, backgroundColor: "#f3f4f6", alignItems: "center", justifyContent: "center" },
-  secondaryText: { fontSize: 14, fontWeight: "700", color: "#374151" },
-  primaryBtn: { flex: 2, height: 50, borderRadius: 14, backgroundColor: "#0df20d", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
-  primaryText: { fontSize: 14, fontWeight: "800", color: "#065f46" },
+  primaryBtn: { flex: 1, height: 50, borderRadius: 14, backgroundColor: "#047857", alignItems: "center", justifyContent: "center" },
+  primaryText: { fontSize: 14, fontWeight: "800", color: "#fff" },
 });

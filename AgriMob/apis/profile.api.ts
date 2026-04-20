@@ -10,7 +10,7 @@ export const profileApi = {
     }),
 
   myOrders: () =>
-    apiFetch("/api/orders/?buyer=me"),
+    apiFetch("/api/orders/"),
 
   myReviews: () =>
     apiFetch("/api/reviews/my-reviews/"),

@@ -10,5 +10,5 @@ export const orderApi = {
     apiFetch(`/api/orders/${id}/`),
 
   myOrders: () =>
-    apiFetch("/api/orders/?buyer=me"),
+    apiFetch("/api/orders/"),
 };

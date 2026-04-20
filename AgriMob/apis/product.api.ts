@@ -9,4 +9,7 @@ export const productApi = {
 
   search: (q: string) =>
     apiFetch(`/api/products/?search=${q}`),
+
+  ministryProducts: () =>
+    apiFetch("/api/products/ministry/"),
 };

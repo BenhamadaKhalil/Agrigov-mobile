@@ -7,13 +7,15 @@ import { Ionicons } from "@expo/vector-icons";
 import FarmerDashboard from "../screens/farmer/FarmerDashboard";
 import InventoryScreen from "../screens/farmer/InventoryScreen";
 import AddProductScreen from "../screens/farmer/AddProductScreen";
+import EditProductScreen from "../screens/farmer/EditProductScreen";
 import LogisticsScreen from "../screens/farmer/LogisticsScreen";
 import ProfileStack from "./ProfileStack"; // Using the same profile screen
 
 // Define types
 export type InventoryStackParamList = {
-  Inventory: undefined;
+  InventoryMain: undefined;
   AddProduct: undefined;
+  EditProduct: { productId: number };
 };
 
 export type FarmerTabParamList = {
@@ -30,8 +32,9 @@ const InventoryStack = createNativeStackNavigator<InventoryStackParamList>();
 function InventoryStackNavigator() {
   return (
     <InventoryStack.Navigator screenOptions={{ headerShown: false }}>
-      <InventoryStack.Screen name="Inventory" component={InventoryScreen} />
+      <InventoryStack.Screen name="InventoryMain" component={InventoryScreen} />
       <InventoryStack.Screen name="AddProduct" component={AddProductScreen} />
+      <InventoryStack.Screen name="EditProduct" component={EditProductScreen} />
     </InventoryStack.Navigator>
   );
 }

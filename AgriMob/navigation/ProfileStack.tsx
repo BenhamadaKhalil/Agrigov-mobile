@@ -10,9 +10,8 @@ import NotificationsScreen from "../screens/profile/Notificationsscreen";
 import PaymentMethodsScreen from "../screens/profile/Paymentmethodsscreen";
 import SecurityScreen from "../screens/profile/Securityscreen";
 import HelpSupportScreen from "../screens/profile/Helpsupportscreen";
-0
 export type ProfileStackParamList = {
-  Profile: undefined;
+  ProfileMain: undefined;
   EditProfile: undefined;
   Notifications: undefined;
   PaymentMethods: undefined;
@@ -29,7 +28,7 @@ export default function ProfileStack() {
         headerShown: false,
       }}
     >
-      <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="ProfileMain" component={ProfileScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} />

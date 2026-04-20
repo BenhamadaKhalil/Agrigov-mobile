@@ -20,8 +20,11 @@ export const farmerApi = {
     apiFetch(`/api/products/${id}/`, { method: "DELETE" }),
 
   dashboard: () =>
-    apiFetch("/api/farmer/dashboard/"),
+    apiFetch("/api/dashboards/farmer/"),
 
   inventory: () =>
-    apiFetch("/api/farmer/inventory/"),
+    apiFetch("/api/products/my/"),
+
+  myFarms: () =>
+    apiFetch("/api/farms/me/"),
 };
