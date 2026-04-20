@@ -8,148 +8,175 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-const StatCard = ({ title, value, icon }: any) => (
-  <View style={styles.statCard}>
-    <MaterialIcons name={icon} size={20} color="#0df20d" />
-    <Text style={styles.statValue}>{value}</Text>
-    <Text style={styles.statTitle}>{title}</Text>
-  </View>
-);
 
-const StatusBadge = ({ status }: any) => {
-  let color = "#999";
+type OrderStatus = "Pending" | "Loaded" | "Transit" | "Delivered";
 
-  if (status === "Pending") color = "orange";
-  if (status === "Loaded") color = "blue";
-  if (status === "Transit") color = "purple";
-  if (status === "Delivered") color = "green";
+interface Order {
+  id: string;
+  buyer: string;
+  product: string;
+  emoji: string;
+  transporter: string;
+  status: OrderStatus;
+}
 
-  return (
-    <Text style={[styles.status, { color }]}>{status}</Text>
-  );
+const statusConfig: Record<OrderStatus, { bg: string; text: string; label: string }> = {
+  Pending:   { bg: "#fff3e0", text: "#c05c00", label: "Pending" },
+  Loaded:    { bg: "#e3f0ff", text: "#1a5fa8", label: "Loaded" },
+  Transit:   { bg: "#f0ecff", text: "#6336c7", label: "Transit" },
+  Delivered: { bg: "#d1fae5", text: "#047857", label: "Delivered" },
 };
 
-const PickupItem = ({ date, title, desc }: any) => (
-  <View style={styles.pickup}>
-    <View style={styles.dateBox}>
-      <Text style={styles.dateText}>{date}</Text>
-    </View>
-
-    <View>
-      <Text style={styles.buyer}>{title}</Text>
-      <Text style={styles.subText}>{desc}</Text>
-    </View>
-  </View>
-);
-
-const orders = [
+const orders: Order[] = [
   {
     id: "#ORD-4022",
     buyer: "FreshMarket Inc.",
-    product: "Corn • 5 Tons",
+    product: "Corn · 5 Tons",
+    emoji: "🌽",
     transporter: "SwiftHaul",
     status: "Pending",
   },
   {
     id: "#ORD-4019",
     buyer: "Gov Grain Reserve",
-    product: "Wheat • 12.5 Tons",
+    product: "Wheat · 12.5 Tons",
+    emoji: "🌾",
     transporter: "AgriTrans",
     status: "Loaded",
   },
   {
     id: "#ORD-3988",
     buyer: "City Supermarkets",
-    product: "Tomatoes • 2 Tons",
+    product: "Tomatoes · 2 Tons",
+    emoji: "🍅",
     transporter: "FastFresh",
     status: "Transit",
   },
   {
     id: "#ORD-3850",
     buyer: "Organic Wholesalers",
-    product: "Soybeans • 8 Tons",
+    product: "Soybeans · 8 Tons",
+    emoji: "🫘",
     transporter: "GreenRoute",
     status: "Delivered",
   },
 ];
 
+const StatCard = ({
+  icon,
+  title,
+  value,
+  dark,
+}: {
+  icon: React.ComponentProps<typeof MaterialIcons>["name"];
+  title: string;
+  value: string;
+  dark?: boolean;
+}) => (
+  <View style={[styles.statCard, dark && styles.statCardDark]}>
+    <View style={[styles.statIconWrap, dark && styles.statIconWrapLight]}>
+      <MaterialIcons name={icon} size={18} color={dark ? "#047857" : "#0df20d"} />
+    </View>
+    <Text style={[styles.statValue, dark && styles.statValueLight]}>{value}</Text>
+    <Text style={[styles.statLabel, dark && styles.statLabelLight]}>{title}</Text>
+  </View>
+);
+
 export default function LogisticsScreen() {
   return (
-    <ScrollView style={styles.container}>
-
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* HEADER */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Logistics Overview</Text>
-        <Text style={styles.subtitle}>
-          Manage shipments and deliveries
-        </Text>
-      </View>
+      <Text style={styles.title}>Logistics</Text>
+      <Text style={styles.subtitle}>Manage shipments and deliveries</Text>
 
       {/* STATS */}
-      <View style={styles.statsRow}>
-        <StatCard title="Ready" value="12" icon="inventory" />
-        <StatCard title="Transit" value="8" icon="local-shipping" />
-        <StatCard title="Delivered" value="24" icon="check-circle" />
-        <StatCard title="On-Time" value="98%" icon="trending-up" />
+      <View style={styles.statsGrid}>
+        <StatCard icon="inventory" title="Ready" value="12" />
+        <StatCard icon="local-shipping" title="Transit" value="8" />
+        <StatCard icon="check-circle" title="Delivered" value="24" />
+        <StatCard icon="trending-up" title="On-Time" value="98%" dark />
       </View>
 
       {/* SEARCH */}
       <View style={styles.searchBox}>
-        <MaterialIcons name="search" size={20} color="#888" />
-        <TextInput placeholder="Search orders..." style={styles.input} />
+        <MaterialIcons name="search" size={18} color="#9ca3af" />
+        <TextInput
+          placeholder="Search orders…"
+          placeholderTextColor="#9ca3af"
+          style={styles.searchInput}
+        />
       </View>
 
-      {/* ORDERS LIST */}
-      <View>
-        {orders.map((order) => (
-          <View key={order.id} style={styles.card}>
-            <View style={styles.row}>
+      {/* ORDERS */}
+      <Text style={styles.sectionTitle}>Active Orders</Text>
+      {orders.map((order) => {
+        const cfg = statusConfig[order.status];
+        return (
+          <View key={order.id} style={styles.orderCard}>
+            <View style={styles.orderHeader}>
               <Text style={styles.orderId}>{order.id}</Text>
-              <StatusBadge status={order.status} />
+              <View style={[styles.statusBadge, { backgroundColor: cfg.bg }]}>
+                <Text style={[styles.statusText, { color: cfg.text }]}>
+                  {cfg.label}
+                </Text>
+              </View>
             </View>
 
-            <Text style={styles.buyer}>{order.buyer}</Text>
-            <Text style={styles.subText}>{order.product}</Text>
-
-            <View style={styles.row}>
-              <Text style={styles.subText}>
-                🚚 {order.transporter}
-              </Text>
-
-              <TouchableOpacity>
-                <MaterialIcons name="more-vert" size={20} color="#777" />
+            <View style={styles.orderBody}>
+              <View style={styles.emojiBox}>
+                <Text style={styles.emojiText}>{order.emoji}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.orderBuyer}>{order.buyer}</Text>
+                <Text style={styles.orderMeta}>{order.product}</Text>
+                <Text style={styles.orderTransporter}>🚚 {order.transporter}</Text>
+              </View>
+              <TouchableOpacity style={styles.moreBtn}>
+                <MaterialIcons name="more-vert" size={18} color="#9ca3af" />
               </TouchableOpacity>
             </View>
+          </View>
+        );
+      })}
+
+      {/* UPCOMING PICKUPS */}
+      <Text style={[styles.sectionTitle, { marginTop: 6 }]}>Upcoming Pickups</Text>
+      <View style={styles.card}>
+        {[
+          { date: "Oct\n24", title: "SwiftHaul Logistics", desc: "Order #4022 · Corn" },
+          { date: "Oct\n25", title: "AgriTrans Co.", desc: "Order #4025 · Rice" },
+        ].map((p, i) => (
+          <View
+            key={i}
+            style={[styles.pickupRow, i === 0 && styles.pickupBorder]}
+          >
+            <View style={styles.dateBox}>
+              <Text style={styles.dateText}>{p.date}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.pickupTitle}>{p.title}</Text>
+              <Text style={styles.orderMeta}>{p.desc}</Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={18} color="#d1d5db" />
           </View>
         ))}
       </View>
 
-      {/* UPCOMING PICKUPS */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Upcoming Pickups</Text>
+      {/* LIVE TRACKING */}
+      <Text style={[styles.sectionTitle, { marginTop: 6 }]}>Live Tracking</Text>
+      <View style={styles.trackCard}>
+        <View style={styles.trackRow}>
+          <View style={styles.liveDot} />
+          <Text style={styles.trackTitle}>Truck TRK-8921</Text>
+        </View>
+        <Text style={styles.trackSub}>20 km away · Arrival in 45 min</Text>
 
-        <PickupItem
-          date="Oct 24"
-          title="SwiftHaul Logistics"
-          desc="Order #4022 • Corn"
-        />
-
-        <PickupItem
-          date="Oct 25"
-          title="AgriTrans Co."
-          desc="Order #4025 • Rice"
-        />
-      </View>
-
-      {/* TRACKING */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Live Tracking</Text>
-
-        <View style={styles.trackingCard}>
-          <Text style={styles.buyer}>Truck TRK-8921</Text>
-          <Text style={styles.subText}>
-            20km away • Arrival 45 min
-          </Text>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: "65%" }]} />
+        </View>
+        <View style={styles.trackLabels}>
+          <Text style={styles.trackLabel}>Farm</Text>
+          <Text style={styles.trackLabel}>Destination</Text>
         </View>
       </View>
     </ScrollView>
@@ -163,112 +190,274 @@ const styles = StyleSheet.create({
     padding: 16,
   },
 
-  header: { marginBottom: 20 },
-
-  title: { fontSize: 24, fontWeight: "bold" },
-  subtitle: { color: "#666" },
-
-  statsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    marginBottom: 20,
+  title: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#1a2e1a",
+    letterSpacing: -0.5,
   },
 
-  statCard: {
-    width: "48%",
-    backgroundColor: "#fff",
-    padding: 12,
-    borderRadius: 10,
+  subtitle: {
+    fontSize: 13,
+    color: "#6b7280",
+    marginTop: 2,
+    marginBottom: 16,
+  },
+
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#1a2e1a",
     marginBottom: 10,
   },
 
-  statValue: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginTop: 5,
+  statsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginBottom: 16,
   },
 
-  statTitle: {
-    fontSize: 12,
-    color: "#777",
+  statCard: {
+    width: "47.5%",
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 0.5,
+    borderColor: "#e4efe4",
+  },
+
+  statCardDark: {
+    backgroundColor: "#047857",
+    borderColor: "#047857",
+  },
+
+  statIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "#f0faf0",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+
+  statIconWrapLight: {
+    backgroundColor: "#a7f3d0",
+  },
+
+  statValue: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#1a2e1a",
+    letterSpacing: -0.3,
+  },
+
+  statValueLight: {
+    color: "#fff",
+  },
+
+  statLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#9ca3af",
+    marginTop: 2,
+  },
+
+  statLabelLight: {
+    color: "#a7f3d0",
   },
 
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 8,
     backgroundColor: "#fff",
-    padding: 10,
-    borderRadius: 10,
-    marginBottom: 20,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    marginBottom: 16,
+    borderWidth: 0.5,
+    borderColor: "#e4efe4",
   },
 
-  input: {
-    marginLeft: 10,
+  searchInput: {
     flex: 1,
+    fontSize: 14,
+    color: "#1a2e1a",
   },
 
-  card: {
+  orderCard: {
     backgroundColor: "#fff",
-    padding: 15,
-    borderRadius: 12,
+    borderRadius: 16,
+    padding: 14,
     marginBottom: 10,
+    borderWidth: 0.5,
+    borderColor: "#e4efe4",
   },
 
-  row: {
+  orderHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-  },
-
-  orderId: {
-    fontWeight: "bold",
-  },
-
-  buyer: {
-    fontWeight: "bold",
-    marginTop: 5,
-  },
-
-  subText: {
-    fontSize: 12,
-    color: "#666",
-  },
-
-  status: {
-    fontSize: 12,
-    fontWeight: "bold",
-  },
-
-  section: {
-    marginTop: 20,
-  },
-
-  sectionTitle: {
-    fontWeight: "bold",
-    marginBottom: 10,
-  },
-
-  pickup: {
-    flexDirection: "row",
     alignItems: "center",
     marginBottom: 10,
   },
 
+  orderId: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#047857",
+  },
+
+  statusBadge: {
+    borderRadius: 20,
+    paddingVertical: 3,
+    paddingHorizontal: 10,
+  },
+
+  statusText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+
+  orderBody: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  emojiBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: "#f0faf0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  emojiText: {
+    fontSize: 20,
+  },
+
+  orderBuyer: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1a2e1a",
+  },
+
+  orderMeta: {
+    fontSize: 12,
+    color: "#9ca3af",
+    marginTop: 1,
+  },
+
+  orderTransporter: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginTop: 2,
+  },
+
+  moreBtn: {
+    padding: 4,
+  },
+
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 0.5,
+    borderColor: "#e4efe4",
+    marginBottom: 14,
+  },
+
+  pickupRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 10,
+  },
+
+  pickupBorder: {
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#f3f4f6",
+  },
+
   dateBox: {
     backgroundColor: "#0df20d",
-    padding: 8,
-    borderRadius: 8,
-    marginRight: 10,
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    alignItems: "center",
+    minWidth: 46,
   },
 
   dateText: {
-    fontSize: 12,
-    fontWeight: "bold",
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#065f46",
+    textAlign: "center",
   },
 
-  trackingCard: {
-    backgroundColor: "#fff",
-    padding: 15,
+  pickupTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#1a2e1a",
+  },
+
+  trackCard: {
+    backgroundColor: "#047857",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 30,
+  },
+
+  trackRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
+  },
+
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#0df20d",
+  },
+
+  trackTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#fff",
+  },
+
+  trackSub: {
+    fontSize: 12,
+    color: "#a7f3d0",
+    marginBottom: 12,
+  },
+
+  progressTrack: {
+    height: 6,
+    backgroundColor: "rgba(255,255,255,0.2)",
     borderRadius: 10,
+    overflow: "hidden",
+  },
+
+  progressFill: {
+    height: "100%",
+    backgroundColor: "#0df20d",
+    borderRadius: 10,
+  },
+
+  trackLabels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 5,
+  },
+
+  trackLabel: {
+    fontSize: 10,
+    color: "#a7f3d0",
   },
 });

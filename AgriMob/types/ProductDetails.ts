@@ -1,6 +1,6 @@
 // ─── Re-export base API type ──────────────────────────────────────────────────
 
-export type { ApiProduct, ApiImage, ApiFarm } from "./Product";
+export type { Product as ApiProduct } from "./Product";
 
 // ─── UI-only types ────────────────────────────────────────────────────────────
 

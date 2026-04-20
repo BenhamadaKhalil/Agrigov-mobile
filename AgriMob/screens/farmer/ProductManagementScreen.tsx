@@ -1,11 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   FlatList,
   TouchableOpacity,
   StyleSheet,
-  Image,
   ScrollView,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -21,8 +20,14 @@ interface Product {
   price: string;
   marketPrice: string;
   status: ProductStatus;
-  image: string;
+  emoji: string;
 }
+
+const statusConfig: Record<ProductStatus, { bg: string; text: string }> = {
+  Active:        { bg: "#d1fae5", text: "#047857" },
+  "Out of Stock":{ bg: "#f3f4f6", text: "#6b7280" },
+  Draft:         { bg: "#fff3e0", text: "#c05c00" },
+};
 
 const products: Product[] = [
   {
@@ -34,7 +39,7 @@ const products: Product[] = [
     price: "$2.20/kg",
     marketPrice: "$2.00",
     status: "Active",
-    image: "https://images.unsplash.com/photo-1546470427-1f6c8b6c0c1b",
+    emoji: "🍅",
   },
   {
     id: "2",
@@ -45,7 +50,7 @@ const products: Product[] = [
     price: "$0.45/unit",
     marketPrice: "$0.50",
     status: "Active",
-    image: "https://images.unsplash.com/photo-1603048297172-c92544798d5a",
+    emoji: "🌽",
   },
   {
     id: "3",
@@ -56,52 +61,56 @@ const products: Product[] = [
     price: "$3.50/kg",
     marketPrice: "$3.50",
     status: "Out of Stock",
-    image: "https://images.unsplash.com/photo-1601648764658-cf37e8c8f6b2",
+    emoji: "🫑",
   },
 ];
 
+const filters: Array<"All" | ProductStatus> = [
+  "All",
+  "Active",
+  "Out of Stock",
+  "Draft",
+];
+
 export default function ProductManagementScreen() {
-  const getStatusStyle = (status: ProductStatus) => {
-    switch (status) {
-      case "Active":
-        return { backgroundColor: "#0df20d20", color: "#0df20d" };
-      case "Out of Stock":
-        return { backgroundColor: "#99999920", color: "#777" };
-      case "Draft":
-        return { backgroundColor: "#ff950020", color: "#ff9500" };
-    }
-  };
+  const [activeFilter, setActiveFilter] = useState<"All" | ProductStatus>("All");
+
+  const filtered =
+    activeFilter === "All"
+      ? products
+      : products.filter((p) => p.status === activeFilter);
 
   const renderItem = ({ item }: { item: Product }) => {
-    const statusStyle = getStatusStyle(item.status);
+    const cfg = statusConfig[item.status];
+    const aboveMarket = parseFloat(item.price) > parseFloat(item.marketPrice);
 
     return (
       <View style={styles.card}>
-
-        {/* IMAGE */}
-        <Image source={{ uri: item.image }} style={styles.image} />
+        {/* EMOJI ICON */}
+        <View style={styles.emojiBox}>
+          <Text style={styles.emoji}>{item.emoji}</Text>
+        </View>
 
         {/* INFO */}
         <View style={styles.info}>
-          <Text style={styles.title}>{item.name}</Text>
-
-          <Text style={styles.subText}>
-            {item.type} • {item.variety}
-          </Text>
+          <Text style={styles.productName}>{item.name}</Text>
+          <Text style={styles.productType}>{item.type} · {item.variety}</Text>
 
           <Text style={styles.meta}>Qty: {item.quantity}</Text>
-          <Text style={styles.meta}>
-            Price: {item.price} • Market {item.marketPrice}
-          </Text>
+          <View style={styles.priceRow}>
+            <Text style={styles.meta}>
+              {item.price}
+            </Text>
+            {aboveMarket && (
+              <MaterialIcons name="arrow-upward" size={12} color="#047857" />
+            )}
+            <Text style={[styles.meta, { color: "#9ca3af" }]}>
+              Mkt {item.marketPrice}
+            </Text>
+          </View>
 
-          {/* STATUS BADGE */}
-          <View
-            style={[
-              styles.statusBadge,
-              { backgroundColor: statusStyle.backgroundColor },
-            ]}
-          >
-            <Text style={{ color: statusStyle.color, fontWeight: "700", fontSize: 11 }}>
+          <View style={[styles.statusBadge, { backgroundColor: cfg.bg }]}>
+            <Text style={[styles.statusText, { color: cfg.text }]}>
               {item.status}
             </Text>
           </View>
@@ -110,11 +119,10 @@ export default function ProductManagementScreen() {
         {/* ACTIONS */}
         <View style={styles.actions}>
           <TouchableOpacity style={styles.iconBtn}>
-            <MaterialIcons name="edit" size={18} color="#0df20d" />
+            <MaterialIcons name="edit" size={16} color="#047857" />
           </TouchableOpacity>
-
           <TouchableOpacity style={styles.iconBtn}>
-            <MaterialIcons name="visibility-off" size={18} color="#777" />
+            <MaterialIcons name="visibility-off" size={16} color="#9ca3af" />
           </TouchableOpacity>
         </View>
       </View>
@@ -123,38 +131,63 @@ export default function ProductManagementScreen() {
 
   return (
     <View style={styles.container}>
-
       {/* HEADER */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Product Management</Text>
-
+        <View>
+          <Text style={styles.headerTitle}>Products</Text>
+          <Text style={styles.headerSub}>{products.length} listings</Text>
+        </View>
         <TouchableOpacity style={styles.addButton}>
-          <MaterialIcons name="add-circle" size={18} color="#000" />
+          <MaterialIcons name="add" size={18} color="#065f46" />
           <Text style={styles.addText}>Add Listing</Text>
         </TouchableOpacity>
       </View>
 
-      {/* FILTERS */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View style={styles.filters}>
-          {["All", "Active", "Out of Stock", "Draft"].map((f) => (
-            <TouchableOpacity key={f} style={styles.filterChip}>
-              <Text style={styles.filterText}>{f}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+      {/* FILTER CHIPS */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterScroll}
+        contentContainerStyle={styles.filterContent}
+      >
+        {filters.map((f) => (
+          <TouchableOpacity
+            key={f}
+            style={[
+              styles.filterChip,
+              activeFilter === f && styles.filterChipActive,
+            ]}
+            onPress={() => setActiveFilter(f)}
+          >
+            <Text
+              style={[
+                styles.filterText,
+                activeFilter === f && styles.filterTextActive,
+              ]}
+            >
+              {f}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </ScrollView>
 
       {/* LIST */}
       <FlatList
-        data={products}
+        data={filtered}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        contentContainerStyle={{ paddingBottom: 20 }}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 30 }}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>No products in this category.</Text>
+          </View>
+        }
       />
     </View>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -162,7 +195,6 @@ const styles = StyleSheet.create({
     padding: 16,
   },
 
-  /* HEADER */
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -171,106 +203,157 @@ const styles = StyleSheet.create({
   },
 
   headerTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: "800",
-    color: "#111",
+    color: "#1a2e1a",
+    letterSpacing: -0.5,
+  },
+
+  headerSub: {
+    fontSize: 13,
+    color: "#9ca3af",
+    marginTop: 1,
   },
 
   addButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 5,
     backgroundColor: "#0df20d",
-    paddingVertical: 8,
+    paddingVertical: 9,
     paddingHorizontal: 12,
-    borderRadius: 10,
+    borderRadius: 12,
   },
 
   addText: {
     fontWeight: "700",
-    color: "#000",
+    color: "#065f46",
+    fontSize: 13,
   },
 
-  /* FILTERS */
-  filters: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 12,
+  filterScroll: {
+    marginBottom: 14,
+  },
+
+  filterContent: {
+    gap: 8,
+    paddingRight: 4,
   },
 
   filterChip: {
     backgroundColor: "#fff",
-    paddingVertical: 6,
-    paddingHorizontal: 14,
+    paddingVertical: 7,
+    paddingHorizontal: 16,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#ddd",
+    borderWidth: 0.5,
+    borderColor: "#e4efe4",
+  },
+
+  filterChipActive: {
+    backgroundColor: "#047857",
+    borderColor: "#047857",
   },
 
   filterText: {
     fontSize: 12,
     fontWeight: "600",
+    color: "#6b7280",
   },
 
-  /* CARD */
+  filterTextActive: {
+    color: "#fff",
+  },
+
   card: {
     flexDirection: "row",
-    backgroundColor: "#fff",
-    padding: 12,
-    borderRadius: 14,
-    marginBottom: 12,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    gap: 12,
+    backgroundColor: "#fff",
+    padding: 14,
+    borderRadius: 16,
+    marginBottom: 10,
+    borderWidth: 0.5,
+    borderColor: "#e4efe4",
   },
 
-  image: {
-    width: 55,
-    height: 55,
-    borderRadius: 10,
-    marginRight: 12,
+  emojiBox: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: "#f0faf0",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+
+  emoji: {
+    fontSize: 26,
   },
 
   info: {
     flex: 1,
+    minWidth: 0,
   },
 
-  title: {
-    fontSize: 15,
-    fontWeight: "800",
+  productName: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1a2e1a",
   },
 
-  subText: {
-    fontSize: 12,
-    color: "#666",
+  productType: {
+    fontSize: 11,
+    color: "#9ca3af",
+    marginTop: 1,
     marginBottom: 4,
   },
 
   meta: {
     fontSize: 11,
-    color: "#444",
+    color: "#6b7280",
+  },
+
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 1,
   },
 
   statusBadge: {
     alignSelf: "flex-start",
-    marginTop: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
     borderRadius: 20,
+    paddingVertical: 3,
+    paddingHorizontal: 10,
+    marginTop: 6,
   },
 
-  /* ACTIONS */
+  statusText: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
+
   actions: {
-    justifyContent: "center",
-    gap: 10,
-    marginLeft: 10,
+    gap: 8,
+    alignItems: "center",
   },
 
   iconBtn: {
-    padding: 6,
-    backgroundColor: "#f3f3f3",
+    width: 32,
+    height: 32,
+    backgroundColor: "#f5f8f5",
     borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  empty: {
+    alignItems: "center",
+    paddingVertical: 40,
+  },
+
+  emptyText: {
+    fontSize: 14,
+    color: "#9ca3af",
   },
 });

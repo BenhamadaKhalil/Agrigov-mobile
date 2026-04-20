@@ -12,9 +12,16 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { InventoryStackParamList } from "../../navigation/FarmerTabNavigator";
 
+const TOTAL_STEPS = 4;
+const CURRENT_STEP = 2;
+
+const storageOptions = ["Cold", "Dry", "Ambient"];
+const categoryOptions = ["Grains", "Vegetables", "Fruits", "Legumes", "Dairy"];
+
 export default function AddProductScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<InventoryStackParamList>>();
+
   const [form, setForm] = useState({
     category: "Grains",
     variety: "",
@@ -25,107 +32,190 @@ export default function AddProductScreen() {
   });
 
   const handleSave = () => {
-    // TODO: Save to backend
     navigation.goBack();
   };
 
   const handlePublish = () => {
-    // TODO: Publish to backend
     navigation.goBack();
   };
 
+  const progress = (CURRENT_STEP / TOTAL_STEPS) * 100;
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
       {/* HEADER */}
       <View style={styles.header}>
-        <Text style={styles.title}>Add New Product</Text>
-        <Text style={styles.subtitle}>Step 2 of 4 • 50% Complete</Text>
-
-        <View style={styles.progressBar}>
-          <View style={styles.progressFill} />
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <MaterialIcons name="arrow-back" size={20} color="#1a2e1a" />
+        </TouchableOpacity>
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          <Text style={styles.title}>Add New Product</Text>
+          <Text style={styles.subtitle}>
+            Step {CURRENT_STEP} of {TOTAL_STEPS}
+          </Text>
         </View>
+        <Text style={styles.pctLabel}>{progress.toFixed(0)}%</Text>
       </View>
 
-      {/* FORM */}
-      <View style={styles.form}>
+      {/* STEP PROGRESS */}
+      <View style={styles.stepsRow}>
+        {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+          <View
+            key={i}
+            style={[
+              styles.stepSeg,
+              i < CURRENT_STEP ? styles.stepFilled : styles.stepEmpty,
+            ]}
+          />
+        ))}
+      </View>
+
+      {/* FORM CARD */}
+      <View style={styles.formCard}>
         {/* CATEGORY */}
         <Text style={styles.label}>Category</Text>
-        <TextInput
-          style={styles.input}
-          value={form.category}
-          onChangeText={(text) => setForm({ ...form, category: text })}
-        />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.optionScroll}
+          contentContainerStyle={{ gap: 8 }}
+        >
+          {categoryOptions.map((c) => (
+            <TouchableOpacity
+              key={c}
+              style={[
+                styles.optionChip,
+                form.category === c && styles.optionChipActive,
+              ]}
+              onPress={() => setForm({ ...form, category: c })}
+            >
+              <Text
+                style={[
+                  styles.optionChipText,
+                  form.category === c && styles.optionChipTextActive,
+                ]}
+              >
+                {c}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
 
         {/* VARIETY */}
         <Text style={styles.label}>Variety / Grade</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g. Grade A"
-          onChangeText={(text) => setForm({ ...form, variety: text })}
-        />
+        <View style={styles.inputWrap}>
+          <MaterialIcons name="eco" size={16} color="#9ca3af" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. Grade A"
+            placeholderTextColor="#c4c4c4"
+            onChangeText={(text) => setForm({ ...form, variety: text })}
+            value={form.variety}
+          />
+        </View>
 
         {/* QUANTITY */}
         <Text style={styles.label}>Quantity (kg)</Text>
-        <TextInput
-          style={styles.input}
-          keyboardType="numeric"
-          placeholder="0"
-          onChangeText={(text) => setForm({ ...form, quantity: text })}
-        />
+        <View style={styles.inputWrap}>
+          <MaterialIcons name="scale" size={16} color="#9ca3af" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            keyboardType="numeric"
+            placeholder="0"
+            placeholderTextColor="#c4c4c4"
+            onChangeText={(text) => setForm({ ...form, quantity: text })}
+            value={form.quantity}
+          />
+        </View>
 
         {/* PRICE */}
         <Text style={styles.label}>Price per kg</Text>
-        <TextInput
-          style={styles.input}
-          keyboardType="numeric"
-          placeholder="0.00"
-          onChangeText={(text) => setForm({ ...form, price: text })}
-        />
+        <View style={styles.inputWrap}>
+          <Text style={[styles.inputIcon, { fontSize: 14, color: "#9ca3af" }]}>$</Text>
+          <TextInput
+            style={styles.input}
+            keyboardType="numeric"
+            placeholder="0.00"
+            placeholderTextColor="#c4c4c4"
+            onChangeText={(text) => setForm({ ...form, price: text })}
+            value={form.price}
+          />
+        </View>
 
-        {/* DATE */}
+        {/* HARVEST DATE */}
         <Text style={styles.label}>Harvest Date</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="YYYY-MM-DD"
-          onChangeText={(text) => setForm({ ...form, date: text })}
-        />
+        <View style={styles.inputWrap}>
+          <MaterialIcons name="event" size={16} color="#9ca3af" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor="#c4c4c4"
+            onChangeText={(text) => setForm({ ...form, date: text })}
+            value={form.date}
+          />
+        </View>
 
         {/* STORAGE */}
-        <Text style={styles.label}>Storage</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Cold / Dry"
-          onChangeText={(text) => setForm({ ...form, storage: text })}
-        />
+        <Text style={styles.label}>Storage Type</Text>
+        <View style={styles.storageRow}>
+          {storageOptions.map((s) => (
+            <TouchableOpacity
+              key={s}
+              style={[
+                styles.storageChip,
+                form.storage === s && styles.storageChipActive,
+              ]}
+              onPress={() => setForm({ ...form, storage: s })}
+            >
+              <Text
+                style={[
+                  styles.storageText,
+                  form.storage === s && styles.storageTextActive,
+                ]}
+              >
+                {s}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         {/* IMAGE UPLOAD */}
-        <View style={styles.uploadBox}>
-          <MaterialIcons name="add-a-photo" size={30} color="#0df20d" />
-          <Text style={styles.uploadText}>Upload Images</Text>
-        </View>
+        <TouchableOpacity style={styles.uploadBox}>
+          <View style={styles.uploadIconCircle}>
+            <MaterialIcons name="add-a-photo" size={22} color="#0df20d" />
+          </View>
+          <Text style={styles.uploadTitle}>Upload Images</Text>
+          <Text style={styles.uploadSub}>Drag & drop or tap to browse</Text>
+        </TouchableOpacity>
 
         {/* WARNING */}
-        <View style={styles.warning}>
-          <MaterialIcons name="warning" size={20} color="orange" />
+        <View style={styles.warningBox}>
+          <MaterialIcons name="info-outline" size={18} color="#c05c00" />
           <Text style={styles.warningText}>
-            Price should be close to official market price
+            Price should be close to the official market price.
           </Text>
         </View>
+      </View>
 
-        {/* BUTTONS */}
-        <View style={styles.buttons}>
-          <TouchableOpacity style={styles.secondaryBtn} onPress={handleSave}>
-            <Text>Save Draft</Text>
-          </TouchableOpacity>
+      {/* ACTION BUTTONS */}
+      <View style={styles.buttons}>
+        <TouchableOpacity style={styles.secondaryBtn} onPress={handleSave}>
+          <Text style={styles.secondaryText}>Save Draft</Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity style={styles.primaryBtn} onPress={handlePublish}>
-            <Text style={{ fontWeight: "bold" }}>Publish</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={styles.primaryBtn} onPress={handlePublish}>
+          <Text style={styles.primaryText}>Publish</Text>
+          <MaterialIcons name="arrow-forward" size={16} color="#065f46" />
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -134,101 +224,248 @@ const styles = StyleSheet.create({
   },
 
   header: {
-    marginBottom: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 0.5,
+    borderColor: "#e4efe4",
   },
 
   title: {
-    fontSize: 22,
-    fontWeight: "bold",
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#1a2e1a",
+    letterSpacing: -0.3,
   },
 
   subtitle: {
-    color: "#666",
-    marginTop: 4,
+    fontSize: 12,
+    color: "#9ca3af",
+    marginTop: 1,
   },
 
-  progressBar: {
-    height: 6,
-    backgroundColor: "#ddd",
+  pctLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#047857",
+  },
+
+  stepsRow: {
+    flexDirection: "row",
+    gap: 6,
+    marginBottom: 18,
+  },
+
+  stepSeg: {
+    flex: 1,
+    height: 5,
     borderRadius: 10,
-    marginTop: 10,
   },
 
-  progressFill: {
-    width: "50%",
-    height: "100%",
+  stepFilled: {
     backgroundColor: "#0df20d",
-    borderRadius: 10,
   },
 
-  form: {
+  stepEmpty: {
+    backgroundColor: "#e4efe4",
+  },
+
+  formCard: {
     backgroundColor: "#fff",
-    padding: 15,
-    borderRadius: 12,
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 0.5,
+    borderColor: "#e4efe4",
+    marginBottom: 14,
   },
 
   label: {
-    marginTop: 10,
-    fontWeight: "bold",
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#374151",
+    marginTop: 14,
+    marginBottom: 6,
+    letterSpacing: 0.2,
+  },
+
+  optionScroll: {
+    marginBottom: 2,
+  },
+
+  optionChip: {
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 0.5,
+    borderColor: "#e4efe4",
+    backgroundColor: "#f5f8f5",
+  },
+
+  optionChipActive: {
+    backgroundColor: "#047857",
+    borderColor: "#047857",
+  },
+
+  optionChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#6b7280",
+  },
+
+  optionChipTextActive: {
+    color: "#fff",
+  },
+
+  inputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f8faf8",
+    borderRadius: 12,
+    borderWidth: 0.5,
+    borderColor: "#e4efe4",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+
+  inputIcon: {
+    marginRight: 2,
   },
 
   input: {
-    backgroundColor: "#f9f9f9",
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 5,
+    flex: 1,
+    fontSize: 14,
+    color: "#1a2e1a",
+  },
+
+  storageRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+
+  storageChip: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 0.5,
+    borderColor: "#e4efe4",
+    backgroundColor: "#f5f8f5",
+    alignItems: "center",
+  },
+
+  storageChipActive: {
+    backgroundColor: "#f0faf0",
+    borderColor: "#047857",
+  },
+
+  storageText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#6b7280",
+  },
+
+  storageTextActive: {
+    color: "#047857",
   },
 
   uploadBox: {
-    marginTop: 20,
-    padding: 20,
-    borderWidth: 2,
+    marginTop: 18,
+    borderWidth: 1.5,
     borderStyle: "dashed",
     borderColor: "#0df20d",
-    borderRadius: 10,
+    borderRadius: 14,
+    padding: 24,
     alignItems: "center",
+    backgroundColor: "#f9fff9",
   },
 
-  uploadText: {
-    marginTop: 10,
-    color: "#555",
+  uploadIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#e6ffe6",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
   },
 
-  warning: {
+  uploadTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1a2e1a",
+  },
+
+  uploadSub: {
+    fontSize: 12,
+    color: "#9ca3af",
+    marginTop: 2,
+  },
+
+  warningBox: {
     flexDirection: "row",
-    alignItems: "center",
-    marginTop: 15,
-    backgroundColor: "#fff3cd",
-    padding: 10,
-    borderRadius: 8,
+    alignItems: "flex-start",
+    gap: 8,
+    backgroundColor: "#fff8e1",
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 14,
+    borderWidth: 0.5,
+    borderColor: "#fde68a",
   },
 
   warningText: {
-    marginLeft: 10,
+    flex: 1,
     fontSize: 12,
+    color: "#854d0e",
+    lineHeight: 18,
   },
 
   buttons: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 20,
+    gap: 10,
+    marginBottom: 40,
   },
 
   primaryBtn: {
-    backgroundColor: "#0df20d",
-    padding: 12,
-    borderRadius: 10,
     flex: 1,
+    flexDirection: "row",
     alignItems: "center",
-    marginLeft: 10,
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "#0df20d",
+    paddingVertical: 14,
+    borderRadius: 14,
+  },
+
+  primaryText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#065f46",
   },
 
   secondaryBtn: {
-    backgroundColor: "#eee",
-    padding: 12,
-    borderRadius: 10,
     flex: 1,
     alignItems: "center",
-    marginRight: 10,
+    justifyContent: "center",
+    backgroundColor: "#fff",
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 0.5,
+    borderColor: "#e4efe4",
+  },
+
+  secondaryText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#374151",
   },
 });
