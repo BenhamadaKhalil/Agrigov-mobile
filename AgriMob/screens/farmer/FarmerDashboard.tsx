@@ -143,8 +143,17 @@ export default function FarmerDashboard() {
         orderApi.myOrders(),
       ]);
       setDashboard(dash);
-      // Show only the 3 most recent orders on dashboard
-      setOrders((ordersData?.results ?? ordersData ?? []).slice(0, 3));
+      const rawOrders = (ordersData?.results ?? ordersData ?? []).slice(0, 3);
+      const mappedOrders = rawOrders.map((o: any) => ({
+        id: o.id,
+        order_number: o.id ? `ORD-${o.id}` : "Unknown",
+        buyer_name: o.buyer || "Unknown",
+        product_name: o.items?.[0]?.product?.title || o.items?.[0]?.product?.category_name || "Multiple Items",
+        quantity: o.items?.[0]?.quantity ? `${o.items[0].quantity} kg` : "0 kg",
+        status: o.status || "pending",
+        created_at: o.created_at || new Date().toISOString(),
+      }));
+      setOrders(mappedOrders);
     } catch (e: any) {
       setError("Could not load dashboard. Pull down to retry.");
     } finally {

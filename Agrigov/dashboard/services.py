@@ -42,11 +42,20 @@ class DashboardService:
 
         avg_rating = products.aggregate(avg=Avg('average_rating'))['avg'] or 0
 
-        top_products = (
+        top_products_raw = (
             products.annotate(total_sold=Sum('history_items__order_items__quantity'))
             .order_by('-total_sold')[:5]
-            .values('id', 'title', 'total_sold')
+            .values('id', 'ministry_product__name', 'total_sold')
         )
+        
+        top_products = [
+            {
+                'id': p['id'],
+                'title': p['ministry_product__name'],
+                'total_sold': p['total_sold'] or 0
+            }
+            for p in top_products_raw
+        ]
 
         low_stock = products.filter(stock__lt=10).count()
 
