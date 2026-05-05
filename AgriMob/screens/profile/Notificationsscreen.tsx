@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { notificationApi, Notification } from "../../apis/notification.api";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -33,54 +34,6 @@ interface PrefItem {
 
 // ─── data ─────────────────────────────────────────────────────────────────────
 
-const NOTIFICATIONS: NotifItem[] = [
-  {
-    id: "1",
-    icon: "local-shipping",
-    iconBg: "#d1fae5",
-    title: "Order Shipped",
-    body: "Order #ORD-4022 has been picked up by SwiftHaul and is en route.",
-    time: "2m ago",
-    unread: true,
-  },
-  {
-    id: "2",
-    icon: "warning",
-    iconBg: "#fff3e0",
-    title: "Low Stock Alert",
-    body: "Iceberg Lettuce is below 20 units. Consider restocking soon.",
-    time: "1h ago",
-    unread: true,
-  },
-  {
-    id: "3",
-    icon: "payments",
-    iconBg: "#dbeafe",
-    title: "Payment Received",
-    body: "$840.00 from FreshMarket Inc. has been deposited to your account.",
-    time: "3h ago",
-    unread: false,
-  },
-  {
-    id: "4",
-    icon: "star",
-    iconBg: "#f0faf0",
-    title: "New Review",
-    body: "City Supermarkets gave you 5 stars: Excellent quality produce!",
-    time: "Yesterday",
-    unread: false,
-  },
-  {
-    id: "5",
-    icon: "check-circle",
-    iconBg: "#d1fae5",
-    title: "Order Delivered",
-    body: "Order #ORD-3850 — 8 Tons of Soybeans — was delivered successfully.",
-    time: "2 days ago",
-    unread: false,
-  },
-];
-
 const PREFS: PrefItem[] = [
   { key: "orders",    label: "Order Updates",      sub: "Pickup, transit & delivery alerts" },
   { key: "prices",    label: "Price Alerts",        sub: "Market price changes" },
@@ -89,35 +42,71 @@ const PREFS: PrefItem[] = [
   { key: "sms",       label: "SMS Notifications",   sub: "Critical alerts via text message" },
 ];
 
+function getIconForType(type: string): { icon: React.ComponentProps<typeof MaterialIcons>["name"], bg: string } {
+  switch (type) {
+    case "ORDER_STATUS": return { icon: "local-shipping", bg: "#d1fae5" };
+    case "LOW_STOCK": return { icon: "warning", bg: "#fff3e0" };
+    case "PRICE_UPDATE": return { icon: "price-change", bg: "#e0e7ff" };
+    case "SYSTEM_ALERT": return { icon: "info", bg: "#dbeafe" };
+    case "NEW_REVIEW": return { icon: "star", bg: "#fef3c7" };
+    default: return { icon: "notifications", bg: "#f3f4f6" };
+  }
+}
+
+function formatRelativeTime(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  
+  if (diffInSeconds < 60) return "Just now";
+  const diffInMinutes = Math.floor(diffInSeconds / 60);
+  if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) return `${diffInHours}h ago`;
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays === 1) return "Yesterday";
+  return `${diffInDays}d ago`;
+}
+
 // ─── sub-components ───────────────────────────────────────────────────────────
 
 const NotifCard = ({
   item,
   onDismiss,
+  onPress,
 }: {
-  item: NotifItem;
-  onDismiss: (id: string) => void;
-}) => (
-  <View style={[styles.notifRow, item.unread && styles.notifUnread]}>
-    <View style={[styles.notifIcon, { backgroundColor: item.iconBg }]}>
-      <MaterialIcons name={item.icon} size={18} color="#555" />
-    </View>
-    <View style={{ flex: 1 }}>
-      <View style={styles.notifHeader}>
-        <Text style={styles.notifTitle}>{item.title}</Text>
-        <Text style={styles.notifTime}>{item.time}</Text>
+  item: Notification;
+  onDismiss: (id: number) => void;
+  onPress: (id: number) => void;
+}) => {
+  const { icon, bg } = getIconForType(item.notification_type);
+  const unread = !item.is_read;
+
+  return (
+    <TouchableOpacity onPress={() => onPress(item.id)} activeOpacity={0.8}>
+      <View style={[styles.notifRow, unread && styles.notifUnread]}>
+        <View style={[styles.notifIcon, { backgroundColor: bg }]}>
+          <MaterialIcons name={icon} size={18} color="#555" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <View style={styles.notifHeader}>
+            <Text style={styles.notifTitle}>{item.title}</Text>
+            <Text style={styles.notifTime}>{formatRelativeTime(item.created_at)}</Text>
+          </View>
+          <Text style={styles.notifBody}>{item.message}</Text>
+        </View>
+        {unread && <View style={styles.unreadDot} />}
       </View>
-      <Text style={styles.notifBody}>{item.body}</Text>
-    </View>
-    {item.unread && <View style={styles.unreadDot} />}
-  </View>
-);
+    </TouchableOpacity>
+  );
+};
 
 // ─── main screen ─────────────────────────────────────────────────────────────
 
 export default function NotificationsScreen() {
   const navigation = useNavigation();
-  const [items, setItems] = useState<NotifItem[]>(NOTIFICATIONS);
+  const [items, setItems] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
   const [prefs, setPrefs] = useState<Record<string, boolean>>({
     orders: true,
     prices: true,
@@ -126,10 +115,47 @@ export default function NotificationsScreen() {
     sms: true,
   });
 
-  const unreadCount = items.filter((i) => i.unread).length;
+  React.useEffect(() => {
+    fetchNotifications();
+  }, []);
 
-  const markAllRead = () =>
-    setItems((prev) => prev.map((i) => ({ ...i, unread: false })));
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const data: any = await notificationApi.getNotifications();
+      const results = Array.isArray(data) ? data : data.results || [];
+      setItems(results);
+    } catch (e) {
+      console.error("Failed to fetch notifications", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const unreadCount = items.filter((i) => !i.is_read).length;
+
+  const markAllRead = async () => {
+    try {
+      await notificationApi.markAllRead();
+      setItems((prev) => prev.map((i) => ({ ...i, is_read: true })));
+    } catch (e) {
+      console.error("Failed to mark all as read", e);
+    }
+  };
+
+  const handlePress = async (id: number) => {
+    try {
+      const item = items.find((i) => i.id === id);
+      if (item && !item.is_read) {
+        await notificationApi.markRead(id);
+        setItems((prev) =>
+          prev.map((i) => (i.id === id ? { ...i, is_read: true } : i))
+        );
+      }
+    } catch (e) {
+      console.error("Failed to mark as read", e);
+    }
+  };
 
   const togglePref = (key: string) =>
     setPrefs((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -161,9 +187,19 @@ export default function NotificationsScreen() {
 
         <Text style={styles.sectionHead}>Recent</Text>
         <View style={styles.card}>
-          {items.map((item) => (
-            <NotifCard key={item.id} item={item} onDismiss={() => {}} />
-          ))}
+          {loading ? (
+            <View style={{ padding: 20, alignItems: "center" }}>
+              <Text style={{ color: "#9ca3af" }}>Loading notifications...</Text>
+            </View>
+          ) : items.length === 0 ? (
+            <View style={{ padding: 20, alignItems: "center" }}>
+              <Text style={{ color: "#9ca3af" }}>No notifications.</Text>
+            </View>
+          ) : (
+            items.map((item) => (
+              <NotifCard key={item.id} item={item} onDismiss={() => {}} onPress={handlePress} />
+            ))
+          )}
         </View>
 
         <Text style={styles.sectionHead}>Preferences</Text>

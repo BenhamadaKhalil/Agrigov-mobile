@@ -15,6 +15,8 @@ import { useNavigation, CommonActions } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../../context/AuthContext";
 import { profileApi } from "../../apis/profile.api";
+import { notificationApi } from "../../apis/notification.api";
+import { useFocusEffect } from "@react-navigation/native";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -138,19 +140,33 @@ const ProfileScreen = () => {
   const { user, logout } = useAuth();
   const [profileData, setProfileData] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
+  const [unreadCount, setUnreadCount] = React.useState(0);
 
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const data = await profileApi.me();
-        setProfileData(data);
-      } catch (e) {
-        console.error("Profile fetch error:", e);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  // Use focus effect so count updates when returning from Notifications screen
+  useFocusEffect(
+    React.useCallback(() => {
+      let isActive = true;
+      (async () => {
+        try {
+          // Fetch profile and unread notifications concurrently
+          const [profileRes, unreadRes] = await Promise.all([
+            profileApi.me(),
+            notificationApi.getUnreadCount()
+          ]);
+          
+          if (isActive) {
+            setProfileData(profileRes);
+            setUnreadCount((unreadRes as any)?.unread_count || 0);
+          }
+        } catch (e) {
+          console.error("Profile/Notification fetch error:", e);
+        } finally {
+          if (isActive) setLoading(false);
+        }
+      })();
+      return () => { isActive = false; };
+    }, [])
+  );
 
   // MeView returns { status, code, data: { user, profile, extras } }
   const meData = profileData?.data ?? profileData; // handle both shapes
@@ -274,7 +290,7 @@ const ProfileScreen = () => {
             icon="notifications"
             iconBg="#fff8f0"
             label="Notifications"
-            sub="Alerts & preferences"
+            sub={unreadCount > 0 ? `${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}` : "Alerts & preferences"}
             onPress={() => navigation.navigate("Notifications")}
           />
           <SettingRow
