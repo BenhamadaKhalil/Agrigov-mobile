@@ -63,6 +63,15 @@ export default function MyReviewsScreen() {
         </View>
         <Text style={styles.date}>{new Date(item.created_at).toLocaleDateString()}</Text>
       </View>
+      <View style={styles.productInfo}>
+        <View style={styles.productIconBox}>
+          <MaterialIcons name="inventory-2" size={20} color="#047857" />
+        </View>
+        <View style={styles.productDetails}>
+          <Text style={styles.productName}>{item.product?.ministry_product?.name || "Unknown Product"}</Text>
+          <Text style={styles.productSub}>{item.product?.farmer_name ? `From ${item.product.farmer_name}` : "Farmer unknown"}</Text>
+        </View>
+      </View>
       <Text style={styles.comment}>{item.comment}</Text>
 
       <View style={styles.actions}>
@@ -180,6 +189,36 @@ const styles = StyleSheet.create({
   date: {
     fontSize: 12,
     color: "#9ca3af",
+  },
+  productInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#f3f4f6",
+  },
+  productIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: "#ecfdf5",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  productDetails: {
+    flex: 1,
+  },
+  productName: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1f2937",
+  },
+  productSub: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginTop: 2,
   },
   comment: {
     fontSize: 14,

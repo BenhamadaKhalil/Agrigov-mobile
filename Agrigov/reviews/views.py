@@ -4,10 +4,15 @@ from .models import Review
 from .serializer import ReviewSerializer
 from rest_framework.permissions import IsAuthenticated
 
+from django_filters.rest_framework import DjangoFilterBackend
+
 class ReviewViewSet(viewsets.ModelViewSet):
     queryset = Review.objects.all()
     serializer_class = ReviewSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['product', 'buyer']
+
     def get_queryset(self):
         return Review.objects.select_related(
             "product",

@@ -123,7 +123,7 @@ export default function ProductDetailsScreen() {
     setSubmittingReview(true);
     try {
       await reviewApi.create({
-        product: Number(productId),
+        product_id: Number(productId),
         rating: newRating,
         comment: newComment.trim(),
       });

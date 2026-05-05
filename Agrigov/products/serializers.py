@@ -74,12 +74,7 @@ class ProductSerializer(serializers.ModelSerializer):
 #  Product – create
 # ─────────────────────────────────────────────
 class CreateProductSerializer(serializers.ModelSerializer):
-    images = serializers.ListField(
-        child=serializers.ImageField(),
-        write_only=True,
-        required=False,
-    )
-
+    # Remove images from serializer fields, handle it manually in create()
     farm_id = serializers.IntegerField(write_only=True)
     ministry_product_id = serializers.PrimaryKeyRelatedField(
         queryset=MinistryProduct.objects.filter(is_active=True),
@@ -95,7 +90,6 @@ class CreateProductSerializer(serializers.ModelSerializer):
             "unit_price",
             "stock",
             "farm_id",
-            "images",
         ]
 
     def validate_farm_id(self, value):
@@ -139,14 +133,17 @@ class CreateProductSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        images = validated_data.pop("images", [])
         validated_data.pop("farm_id")
         farm = validated_data.pop("_farm")
 
         product = Product.objects.create(farm=farm, **validated_data)
 
-        for img in images:
-            ProductImage.objects.create(product=product, image=img)
+        # Handle images directly from request.FILES
+        request = self.context.get("request")
+        if request:
+            images = request.FILES.getlist("images")
+            for img in images:
+                ProductImage.objects.create(product=product, image=img)
 
         return product
 
@@ -156,15 +153,11 @@ class CreateProductSerializer(serializers.ModelSerializer):
 #  Note: ministry_product is intentionally NOT editable after creation.
 # ─────────────────────────────────────────────
 class UpdateProductSerializer(serializers.ModelSerializer):
-    images = serializers.ListField(
-        child=serializers.ImageField(),
-        write_only=True,
-        required=False,
-    )
+    # Remove images from serializer fields, handle it manually in update()
 
     class Meta:
         model = Product
-        fields = ["description", "season", "unit_price", "stock", "images"]
+        fields = ["description", "season", "unit_price", "stock"]
 
     def validate(self, data):
         product = self.instance
@@ -192,17 +185,19 @@ class UpdateProductSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        images = validated_data.pop("images", None)
-
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
-        if images is not None:
-            for img in instance.images.all():
-                img.image.delete(save=False)
-                img.delete()
-            for img in images:
-                ProductImage.objects.create(product=instance, image=img)
+        # Handle images directly from request.FILES if provided
+        request = self.context.get("request")
+        if request and "images" in request.FILES:
+            images = request.FILES.getlist("images")
+            if images:
+                for img in instance.images.all():
+                    img.image.delete(save=False)
+                    img.delete()
+                for img in images:
+                    ProductImage.objects.create(product=instance, image=img)
 
         return instance
