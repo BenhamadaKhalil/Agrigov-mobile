@@ -8,11 +8,12 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
-  Linking,
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
 import { orderApi } from "../../apis/order.api";
 import { useAuth } from "../../context/AuthContext";
 
@@ -290,21 +291,47 @@ export default function OrdersScreen() {
 
 function InvoicePanel({ order }: { order: MappedOrder }) {
   const st = statusStyle(order.status);
-  const transport = 0; // Backend currently doesn't provide transport cost
+  const transport = 0;
   const total = (order.amount || 0) + transport;
+  const [downloading, setDownloading] = useState(false);
 
-  // Don't render if order data is invalid
   if (!order || !order.id) {
     return null;
   }
 
-  const handleDownload = () => {
-    if (order.invoice_pdf) {
-      Linking.openURL(order.invoice_pdf).catch((err) => {
-        Alert.alert("Error", "Could not open the invoice.");
+  const handleDownloadInvoice = async () => {
+    setDownloading(true);
+    try {
+      const { url, headers } = await orderApi.getInvoiceDownloadInfo(order.id);
+
+      const fileUri = `${FileSystem.cacheDirectory}invoice_${order.id}.pdf`;
+
+      const downloadResult = await FileSystem.downloadAsync(url, fileUri, {
+        headers: headers as Record<string, string>,
       });
-    } else {
-      Alert.alert("Not available", "Invoice has not been generated for this order yet.");
+
+      if (downloadResult.status !== 200) {
+        throw new Error(`Download failed with status ${downloadResult.status}`);
+      }
+
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(downloadResult.uri, {
+          mimeType: "application/pdf",
+          dialogTitle: `Invoice #${order.order_id}`,
+          UTI: "com.adobe.pdf",
+        });
+      } else {
+        Alert.alert("Success", "Invoice downloaded successfully.");
+      }
+    } catch (err: any) {
+      console.error("Invoice download error:", err);
+      Alert.alert(
+        "Download Failed",
+        err?.message || "Could not download the invoice. Please try again."
+      );
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -342,13 +369,19 @@ function InvoicePanel({ order }: { order: MappedOrder }) {
         </Text>
       </View>
 
-      <TouchableOpacity 
-        style={[styles.downloadBtn, !order.invoice_pdf && { opacity: 0.5 }]} 
-        onPress={handleDownload}
+      <TouchableOpacity
+        style={styles.downloadBtn}
+        onPress={handleDownloadInvoice}
+        disabled={downloading}
+        activeOpacity={0.7}
       >
-        <MaterialIcons name="download" size={16} color="#047857" />
+        {downloading ? (
+          <ActivityIndicator size="small" color="#047857" />
+        ) : (
+          <MaterialIcons name="download" size={16} color="#047857" />
+        )}
         <Text style={styles.downloadBtnText}>
-          {order.invoice_pdf ? "Download Invoice PDF" : "Invoice Not Available"}
+          {downloading ? "Generating Invoice…" : "Download Invoice PDF"}
         </Text>
       </TouchableOpacity>
     </View>

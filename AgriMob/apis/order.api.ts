@@ -1,4 +1,6 @@
 import { apiFetch } from "./api";
+import { BASE_URL } from "./config";
+import { storage } from "./storage";
 
 export interface CheckoutPayload {
   transporter_id: number;
@@ -65,4 +67,13 @@ export const orderApi = {
       method: "PATCH",
       body: JSON.stringify({ status }),
     }),
+
+  // Invoice — returns the full URL and auth headers for file download
+  getInvoiceDownloadInfo: async (orderId: number) => {
+    const token = await storage.getToken();
+    return {
+      url: `${BASE_URL}/api/orders/${orderId}/invoice/`,
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    };
+  },
 };
