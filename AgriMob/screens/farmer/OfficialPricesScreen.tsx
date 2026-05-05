@@ -28,7 +28,7 @@ export default function OfficialPricesScreen() {
   };
 
   const filteredPrices = prices.filter((p) =>
-    p.product_name?.toLowerCase().includes(search.toLowerCase()) ||
+    p.product_detail?.name?.toLowerCase().includes(search.toLowerCase()) ||
     p.wilaya?.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -39,11 +39,11 @@ export default function OfficialPricesScreen() {
           <MaterialIcons name="local-offer" size={20} color="#047857" />
         </View>
         <View style={styles.productInfo}>
-          <Text style={styles.productName}>{item.product_name}</Text>
+          <Text style={styles.productName}>{item.product_detail?.name || "Unknown Product"}</Text>
           {item.wilaya ? (
             <View style={styles.locationRow}>
               <MaterialIcons name="location-on" size={12} color="#6b7280" />
-              <Text style={styles.wilayaText}>{item.wilaya} {item.region ? `- ${item.region}` : ""}</Text>
+              <Text style={styles.wilayaText}>{item.wilaya} {item.region_name && item.region_name !== "National" ? `- ${item.region_name}` : ""}</Text>
             </View>
           ) : (
             <View style={styles.locationRow}>
@@ -53,8 +53,8 @@ export default function OfficialPricesScreen() {
           )}
         </View>
         <View style={styles.priceWrap}>
-          <Text style={styles.priceVal}>{Number(item.price).toLocaleString("fr-DZ")} DZD</Text>
-          <Text style={styles.priceUnit}>per kg</Text>
+          <Text style={styles.priceVal}>{Number(item.min_price).toLocaleString("fr-DZ")} - {Number(item.max_price).toLocaleString("fr-DZ")} DZD</Text>
+          <Text style={styles.priceUnit}>per {item.unit || "kg"}</Text>
         </View>
       </View>
     </View>
