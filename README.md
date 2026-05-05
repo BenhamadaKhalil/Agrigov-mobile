@@ -1,37 +1,47 @@
 # 🌱 AgriGov Mobile
 
-AgriGov Mobile is a cross-platform mobile application built with **React Native (Expo)**, designed to provide users with easy access to agricultural services. The app is powered by a **Django REST API backend** for authentication and data management.
+AgriGov Mobile is a cross-platform mobile application built with **React Native (Expo)** that helps users access agricultural services بسهولة وفعالية.
+It connects seamlessly to a **Django REST API backend** for authentication, data management, and real-time interactions.
 
 ---
 
-## 🚀 Features
+## ✨ Features
 
-- 🔐 User Authentication (Login / Registration)
-- 📱 Clean and responsive mobile UI
-- 🌐 اتصال مع Django REST API
-- ⚡ Fast development using Expo
-- 🔄 Real-time data interaction with backend
+* 🔐 Secure authentication (Login / Register)
+* 📱 Clean, responsive, and user-friendly UI
+* 🌐 Seamless integration with Django REST API
+* ⚡ Fast development using Expo
+* 🔄 Real-time data sync with backend
+* 🌍 Ready for multi-language support (EN / AR)
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Frontend:** React Native (Expo)
-- **Backend:** Django + Django REST Framework
-- **API Communication:** Fetch / Axios
+* **Frontend:** React Native (Expo)
+* **Backend:** Django + Django REST Framework
+* **Networking:** Axios / Fetch API
+
+---
+
+## 📸 App Preview (optional)
+
+> Add screenshots here later for better presentation 🚀
 
 ---
 
 ## 📦 Installation
 
-### 1. Clone the repository
+### 1️⃣ Clone the repository
 
 ```bash
-git clone https://github.com/your-username/agrigov-mobile.git
+git clone https://github.com/BenhamadaKhalil/agrigov-mobile.git
 cd agrigov-mobile
-````
+```
 
-### 2. Install dependencies
+---
+
+### 2️⃣ Install dependencies
 
 ```bash
 npm install
@@ -53,63 +63,63 @@ yarn install
 npx expo start
 ```
 
-This will open the Expo DevTools in your browser.
+This will open Expo DevTools in your browser.
 
 ---
 
-## 📱 Run on Your Physical Device
+## 📱 Run on a Physical Device
 
-### Option 1: Using Expo Go (Recommended)
+### ✅ Using Expo Go (Recommended)
 
-1. Install **Expo Go**:
+1. Install Expo Go:
 
-   * Android: [https://play.google.com/store/apps/details?id=host.exp.exponent](https://play.google.com/store/apps/details?id=host.exp.exponent)
-   * iOS: [https://apps.apple.com/app/expo-go/id982107779](https://apps.apple.com/app/expo-go/id982107779)
+   * Android → [https://play.google.com/store/apps/details?id=host.exp.exponent](https://play.google.com/store/apps/details?id=host.exp.exponent)
+   * iOS → [https://apps.apple.com/app/expo-go/id982107779](https://apps.apple.com/app/expo-go/id982107779)
 
-2. Make sure your phone and computer are on the **same Wi-Fi network**
+2. Ensure your phone and computer are on the **same Wi-Fi network**
 
 3. Scan the QR code:
 
-   * Android → use Expo Go app
-   * iOS → use Camera app
+   * Android → via Expo Go
+   * iOS → via Camera app
 
 ---
 
-### ⚠️ Important (Backend Connection)
+## ⚠️ Backend Connection (Important)
 
-If you're connecting to a **local Django server**, replace:
+If you're running Django locally, **DO NOT use**:
 
 ```js
 http://127.0.0.1:8000
 ```
 
-with your computer’s local IP address:
+Instead, use your machine’s local IP:
 
 ```js
 http://192.168.x.x:8000
 ```
 
-👉 Find your IP:
+### 🔍 Find your IP:
 
 ```bash
-ipconfig   # Windows
-ifconfig   # Mac/Linux
+ipconfig     # Windows
+ifconfig     # Mac/Linux
 ```
 
 ---
 
-### Option 2: Using Emulator
+## 💻 Run on Emulator
 
-#### Android:
+### Android
 
 * Install Android Studio
-* Start an emulator
-* Press **"a"** in Expo terminal
+* Launch emulator
+* Press `a` in Expo terminal
 
-#### iOS (Mac only):
+### iOS (Mac only)
 
 * Install Xcode
-* Press **"i"** in Expo terminal
+* Press `i` in Expo terminal
 
 ---
 
@@ -118,7 +128,7 @@ ifconfig   # Mac/Linux
 Make sure your backend is running:
 
 ```bash
-python manage.py runserver 
+python manage.py runserver 0.0.0.0:8000
 ```
 
 ---
@@ -126,42 +136,50 @@ python manage.py runserver
 ## 📁 Project Structure
 
 ```
-/components
-/screens
-/services   # API calls
-/assets
-App.js
+/components      # Reusable UI components
+/screens         # App screens
+/services        # API calls (Axios)
+/assets          # Images & static files
+App.js           # Entry point
 ```
 
 ---
 
 ## 🧪 Troubleshooting
 
-* ❌ App can't connect to backend
-  → Check IP address & same Wi-Fi
+**❌ Cannot connect to backend**
+→ Check IP address & same Wi-Fi network
 
-* ❌ Expo not loading
-  → Run:
+**❌ Expo not loading**
 
-  ```bash
-  npx expo start --clear
-  ```
+```bash
+npx expo start --clear
+```
 
-* ❌ Network error
-  → Disable firewall or allow port 8000
+**❌ Network error**
+→ Disable firewall or allow port `8000`
 
 ---
 
-## 📌 Future Improvements
+## 🚀 Future Improvements
 
-* 🌾 Add more agricultural services
+* 🌾 Advanced agricultural services
 * 📊 Dashboard & analytics
 * 🔔 Push notifications
-* 🌍 Multi-language support
+* 🌍 Full multi-language support
+* 🤖 AI-powered recommendations
 
 ---
 
 ## 👨‍💻 Author
 
-Khalil – React Native & Django Developer
+**Khalil Benhamada**
+React Native & Django Developer
 
+🔗 GitHub: [https://github.com/BenhamadaKhalil](https://github.com/BenhamadaKhalil)
+
+---
+
+## ⭐ Support
+
+If you like this project, consider giving it a ⭐ on GitHub — it helps a lot!
