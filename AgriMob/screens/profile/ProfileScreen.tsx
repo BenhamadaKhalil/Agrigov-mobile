@@ -153,7 +153,7 @@ const ProfileScreen = () => {
             profileApi.me(),
             notificationApi.getUnreadCount()
           ]);
-          
+
           if (isActive) {
             setProfileData(profileRes);
             setUnreadCount((unreadRes as any)?.unread_count || 0);
@@ -305,13 +305,7 @@ const ProfileScreen = () => {
         {/* ── ACTIVITY ── */}
         <Text style={styles.sectionHead}>Activity</Text>
         <View style={styles.card}>
-          <SettingRow
-            icon="receipt-long"
-            iconBg="#f0faf0"
-            label="Order History"
-            sub={`${extras?.orders_count ?? 0} completed orders`}
-            onPress={goToOrders}
-          />
+          
           <SettingRow
             icon="star"
             iconBg="#f0faf0"

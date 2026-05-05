@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import { orderApi } from "../../apis/order.api";
 import { farmerApi, FarmerMission } from "../../apis/farmer.api";
 
@@ -377,6 +378,58 @@ export default function OrderDetailScreen() {
                   </View>
                 )}
 
+                {/* Google Map */}
+                {mission.pickup_latitude && mission.pickup_longitude && (
+                  <View style={styles.mapContainer}>
+                    <MapView
+                      style={styles.map}
+                      provider={PROVIDER_GOOGLE}
+                      initialRegion={{
+                        latitude: mission.pickup_latitude,
+                        longitude: mission.pickup_longitude,
+                        latitudeDelta: 0.15,
+                        longitudeDelta: 0.15,
+                      }}
+                      scrollEnabled={false}
+                      zoomEnabled={false}
+                      rotateEnabled={false}
+                      pitchEnabled={false}
+                    >
+                      <Marker
+                        coordinate={{
+                          latitude: mission.pickup_latitude,
+                          longitude: mission.pickup_longitude,
+                        }}
+                        title="Pickup"
+                        description={mission.pickup_address}
+                        pinColor="#047857"
+                      />
+                      {mission.delivery_latitude && mission.delivery_longitude && (
+                        <>
+                          <Marker
+                            coordinate={{
+                              latitude: mission.delivery_latitude,
+                              longitude: mission.delivery_longitude,
+                            }}
+                            title="Delivery"
+                            description={mission.delivery_address}
+                            pinColor="#ef4444"
+                          />
+                          <Polyline
+                            coordinates={[
+                              { latitude: mission.pickup_latitude, longitude: mission.pickup_longitude },
+                              { latitude: mission.delivery_latitude, longitude: mission.delivery_longitude },
+                            ]}
+                            strokeColor="#047857"
+                            strokeWidth={3}
+                            lineDashPattern={[8, 6]}
+                          />
+                        </>
+                      )}
+                    </MapView>
+                  </View>
+                )}
+
                 {/* Cancel mission */}
                 {canCancelMission && (
                   <TouchableOpacity
@@ -632,6 +685,20 @@ const styles = StyleSheet.create({
   addressSection: { paddingHorizontal: 14, paddingBottom: 12, gap: 6 },
   addressRow: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
   addressText: { fontSize: 11, color: "#6b7280", flex: 1 },
+
+  // Map
+  mapContainer: {
+    height: 180,
+    marginHorizontal: 14,
+    marginBottom: 12,
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 0.5,
+    borderColor: "#e4efe4",
+  },
+  map: {
+    ...StyleSheet.absoluteFillObject,
+  },
 
   // No mission
   noMission: { alignItems: "center", padding: 24, gap: 6 },

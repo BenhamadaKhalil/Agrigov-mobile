@@ -17,7 +17,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
-import Svg, { Path, Circle } from "react-native-svg";
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 
 import { transporterApi, ApiMission, ApiVehicle } from "../../apis/transporter.api";
 import { useAuth } from "../../context/AuthContext";
@@ -222,10 +222,53 @@ const AvailRoute = ({ pickup, dropoff }: { pickup: string; dropoff: string }) =>
 
 // ─── map area ────────────────────────────────────────────────────────────────
 
+// Default center (Algeria ~center)
+const DEFAULT_REGION = {
+  latitude: 36.75,
+  longitude: 3.05,
+  latitudeDelta: 0.5,
+  longitudeDelta: 0.5,
+};
+
 const MapArea = ({ missions }: { missions: ApiMission[] }) => {
+  const mapRef = useRef<MapView>(null);
   const activeMission = missions.find(m => m.status === "in_transit" || m.status === "picked_up");
 
-  if (!activeMission) {
+  // All missions with coordinates (for markers)
+  const missionsWithCoords = missions.filter(
+    m => m.pickup_latitude && m.pickup_longitude && ["accepted", "picked_up", "in_transit"].includes(m.status)
+  );
+
+  // Fit map to markers when data changes
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (activeMission?.pickup_latitude && activeMission?.delivery_latitude) {
+      const coords = [
+        { latitude: activeMission.pickup_latitude, longitude: activeMission.pickup_longitude! },
+        { latitude: activeMission.delivery_latitude, longitude: activeMission.delivery_longitude! },
+      ];
+      setTimeout(() => {
+        mapRef.current?.fitToCoordinates(coords, {
+          edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+          animated: true,
+        });
+      }, 500);
+    } else if (missionsWithCoords.length > 0) {
+      const coords = missionsWithCoords
+        .filter(m => m.pickup_latitude && m.pickup_longitude)
+        .map(m => ({ latitude: m.pickup_latitude!, longitude: m.pickup_longitude! }));
+      if (coords.length > 0) {
+        setTimeout(() => {
+          mapRef.current?.fitToCoordinates(coords, {
+            edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+            animated: true,
+          });
+        }, 500);
+      }
+    }
+  }, [activeMission, missionsWithCoords.length]);
+
+  if (!activeMission && missionsWithCoords.length === 0) {
     return (
       <View style={[styles.mapArea, { alignItems: "center", justifyContent: "center" }]}>
         <MaterialIcons name="map" size={48} color="#9ca3af" />
@@ -234,46 +277,111 @@ const MapArea = ({ missions }: { missions: ApiMission[] }) => {
     );
   }
 
+  const initialRegion = activeMission?.pickup_latitude
+    ? {
+        latitude: activeMission.pickup_latitude,
+        longitude: activeMission.pickup_longitude!,
+        latitudeDelta: 0.15,
+        longitudeDelta: 0.15,
+      }
+    : missionsWithCoords[0]?.pickup_latitude
+    ? {
+        latitude: missionsWithCoords[0].pickup_latitude,
+        longitude: missionsWithCoords[0].pickup_longitude!,
+        latitudeDelta: 0.15,
+        longitudeDelta: 0.15,
+      }
+    : DEFAULT_REGION;
+
   return (
     <View style={styles.mapArea}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: "#eaf3ea" }]} />
-      <View style={styles.mapRoadH} />
-      <View style={styles.mapRoadV} />
-      <View style={styles.mapRiver} />
+      <MapView
+        ref={mapRef}
+        style={StyleSheet.absoluteFill}
+        provider={PROVIDER_GOOGLE}
+        initialRegion={initialRegion}
+        showsUserLocation
+        showsMyLocationButton={false}
+        customMapStyle={mapStyle}
+      >
+        {/* Active mission markers + route line */}
+        {activeMission?.pickup_latitude && activeMission?.pickup_longitude && (
+          <Marker
+            coordinate={{
+              latitude: activeMission.pickup_latitude,
+              longitude: activeMission.pickup_longitude,
+            }}
+            title="Pickup"
+            description={activeMission.pickup_address}
+            pinColor="#047857"
+          />
+        )}
+        {activeMission?.delivery_latitude && activeMission?.delivery_longitude && (
+          <Marker
+            coordinate={{
+              latitude: activeMission.delivery_latitude,
+              longitude: activeMission.delivery_longitude,
+            }}
+            title="Delivery"
+            description={activeMission.delivery_address}
+            pinColor="#ef4444"
+          />
+        )}
+        {activeMission?.pickup_latitude && activeMission?.delivery_latitude && (
+          <Polyline
+            coordinates={[
+              { latitude: activeMission.pickup_latitude, longitude: activeMission.pickup_longitude! },
+              { latitude: activeMission.delivery_latitude, longitude: activeMission.delivery_longitude! },
+            ]}
+            strokeColor="#047857"
+            strokeWidth={3}
+            lineDashPattern={[8, 6]}
+          />
+        )}
 
-      <Svg style={StyleSheet.absoluteFill} viewBox="0 0 343 140">
-        <Path
-          d="M 120 52 Q 160 70 200 90"
-          fill="none"
-          stroke="#0df20d"
-          strokeDasharray="6,4"
-          strokeWidth={2.5}
-          strokeLinecap="round"
-        />
-        <Circle cx={160} cy={72} r={4} fill="white" stroke="#0df20d" strokeWidth={2} />
-      </Svg>
+        {/* Other missions markers */}
+        {missionsWithCoords
+          .filter(m => m.id !== activeMission?.id)
+          .map(m => (
+            <React.Fragment key={m.id}>
+              {m.pickup_latitude && m.pickup_longitude && (
+                <Marker
+                  coordinate={{ latitude: m.pickup_latitude, longitude: m.pickup_longitude }}
+                  title={`Order #${m.order}`}
+                  description={m.pickup_address}
+                  pinColor="#6b7280"
+                  opacity={0.7}
+                />
+              )}
+            </React.Fragment>
+          ))}
+      </MapView>
 
-      <View style={[styles.mapPin, { left: 108, top: 30 }]}>
-        <View style={[styles.mapPinCircle, { backgroundColor: "#374151" }]}>
-          <MaterialIcons name="agriculture" size={14} color="#fff" />
+      {/* ETA overlay pill */}
+      {activeMission && (
+        <View style={styles.mapEtaPill}>
+          <View style={styles.mapLiveDot} />
+          <Text style={styles.mapEtaText}>
+            {activeMission.status === "in_transit" ? "In Transit" : "Picked Up"}
+          </Text>
         </View>
-        <View style={[styles.mapPinStem, { backgroundColor: "#374151" }]} />
-      </View>
-
-      <View style={[styles.mapPin, { left: 188, top: 56 }]}>
-        <View style={[styles.mapPinCircle, { backgroundColor: "#0df20d" }]}>
-          <MaterialIcons name="place" size={14} color="#065f46" />
-        </View>
-        <View style={[styles.mapPinStem, { backgroundColor: "#0df20d" }]} />
-      </View>
-
-      <View style={styles.mapEtaPill}>
-        <View style={styles.mapLiveDot} />
-        <Text style={styles.mapEtaText}>ETA 15 min</Text>
-      </View>
+      )}
     </View>
   );
 };
+
+// Google Maps custom style (subtle green tint)
+const mapStyle = [
+  { elementType: "geometry", stylers: [{ color: "#f0f7f0" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#374151" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#ffffff" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#d1d5db" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#e2e8f0" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#bfdbfe" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#d1fae5" }] },
+  { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
+];
 
 // ─── mission card ─────────────────────────────────────────────────────────────
 
@@ -310,7 +418,7 @@ const MissionCard = ({
           <Text style={styles.mcTitle}>{mission.pickup_address.split(",")[0] || "Delivery"}</Text>
         </View>
         <View style={{ alignItems: "flex-end" }}>
-          <Text style={styles.mcPayout}>${(Math.random() * 500 + 100).toFixed(0)}</Text>
+          <Text style={styles.mcPayout}>${mission.order_total_price ? Number(mission.order_total_price).toFixed(0) : "—"}</Text>
           <Text style={styles.mcPayoutLbl}>Payout</Text>
         </View>
       </View>
@@ -382,7 +490,7 @@ const AvailableCard = ({
           <Text style={styles.mcTitle}>{mission.pickup_address.split(",")[0] || "Delivery"}</Text>
         </View>
         <View style={{ alignItems: "flex-end" }}>
-          <Text style={styles.availEarn}>${(Math.random() * 400 + 100).toFixed(0)}</Text>
+          <Text style={styles.availEarn}>${mission.order_total_price ? Number(mission.order_total_price).toFixed(0) : "—"}</Text>
           <Text style={styles.mcPayoutLbl}>Est. pay</Text>
         </View>
       </View>
@@ -505,8 +613,9 @@ export default function MissionManagementScreen() {
 
   const fetchAvailableMissions = useCallback(async () => {
     try {
-      const res = await transporterApi.availableMissions();
-      setAvailableMissions(res.results || []);
+      const res: any = await transporterApi.availableMissions();
+      const missions = res?.results ?? res ?? [];
+      setAvailableMissions(Array.isArray(missions) ? missions : []);
     } catch (err: any) {
       console.error("Failed to fetch available missions:", err.message);
       setAvailableMissions([]);
@@ -515,8 +624,9 @@ export default function MissionManagementScreen() {
 
   const fetchMyMissions = useCallback(async () => {
     try {
-      const res = await transporterApi.myMissions();
-      setMyMissions(res.results || []);
+      const res: any = await transporterApi.myMissions();
+      const missions = res?.results ?? res ?? [];
+      setMyMissions(Array.isArray(missions) ? missions : []);
     } catch (err: any) {
       console.error("Failed to fetch my missions:", err.message);
       setMyMissions([]);
@@ -525,8 +635,9 @@ export default function MissionManagementScreen() {
 
   const fetchVehicles = useCallback(async () => {
     try {
-      const res = await transporterApi.myVehicles();
-      setVehicles(res.results || []);
+      const res: any = await transporterApi.myVehicles();
+      const veh = res?.results ?? res ?? [];
+      setVehicles(Array.isArray(veh) ? veh : []);
     } catch (err: any) {
       console.error("Failed to fetch vehicles:", err.message);
       setVehicles([]);
@@ -671,14 +782,18 @@ export default function MissionManagementScreen() {
         {/* STATS */}
         <View style={styles.statsRow}>
           <View style={styles.statMini}>
-            <Text style={styles.statMiniLabel}>Earnings Today</Text>
-            <Text style={styles.statMiniVal}>$450</Text>
-            <Text style={styles.statMiniSub}>+12% vs yesterday</Text>
+            <Text style={styles.statMiniLabel}>Earnings</Text>
+            <Text style={styles.statMiniVal}>
+              ${completedMissions.reduce((sum, m) => sum + (Number(m.order_total_price) || 0), 0).toFixed(0)}
+            </Text>
+            <Text style={styles.statMiniSub}>{completedMissions.length} delivered</Text>
           </View>
           <View style={styles.statMini}>
-            <Text style={styles.statMiniLabel}>Distance</Text>
-            <Text style={styles.statMiniVal}>128 km</Text>
-            <Text style={styles.statMiniSub}>4 missions done</Text>
+            <Text style={styles.statMiniLabel}>Missions</Text>
+            <Text style={styles.statMiniVal}>{myMissions.length}</Text>
+            <Text style={styles.statMiniSub}>
+              {myMissions.filter(m => ["accepted", "picked_up", "in_transit"].includes(m.status)).length} active
+            </Text>
           </View>
         </View>
       </View>
@@ -738,9 +853,11 @@ export default function MissionManagementScreen() {
                         style={styles.updateStatusBtn}
                         onPress={() => handleUpdateStatus(
                           activeMission.id,
-                          activeMission.status === "accepted" || activeMission.status === "picked_up"
+                          activeMission.status === "accepted"
                             ? "picked_up"
-                            : "in_transit"
+                            : activeMission.status === "picked_up"
+                            ? "in_transit"
+                            : "delivered"
                         )}
                       >
                         <Text style={styles.updateStatusText}>Update Status</Text>
@@ -840,7 +957,7 @@ export default function MissionManagementScreen() {
                     </Text>
                   </View>
                   <View style={{ alignItems: "flex-end" }}>
-                    <Text style={styles.historyPayout}>${(Math.random() * 400 + 100).toFixed(0)}</Text>
+                    <Text style={styles.historyPayout}>${Number(item.order_total_price || 0).toFixed(0)}</Text>
                     <Text style={styles.historyDelivered}>Delivered</Text>
                   </View>
                 </View>
@@ -1025,7 +1142,7 @@ const styles = StyleSheet.create({
 
   // ── MAP
   mapArea: {
-    height: 150,
+    height: 200,
     backgroundColor: "#e8f0e8",
     borderRadius: 16,
     marginBottom: 14,

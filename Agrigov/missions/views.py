@@ -63,7 +63,7 @@ class FarmerMissionListView(generics.ListAPIView):
         user = self.request.user
         return Mission.objects.filter(
             order__farm__farmer=user
-        ).select_related("order", "transporter", "vehicle")
+        ).select_related("order", "transporter", "vehicle").prefetch_related("order__items__product_item")
 
 
 # ─────────────────────────────────────────────
@@ -141,7 +141,7 @@ class AvailableMissionsView(generics.ListAPIView):
         qs = Mission.objects.filter(
             status=Mission.STATUS_PENDING,
             wilaya__iexact=wilaya,
-        ).exclude(id__in=declined_ids).select_related("order", "vehicle")
+        ).exclude(id__in=declined_ids).select_related("order", "vehicle").prefetch_related("order__items__product_item")
 
         # Sort: same baladiya first
         from django.db.models import Case, When, IntegerField
@@ -299,7 +299,7 @@ class TransporterMissionListView(generics.ListAPIView):
     def get_queryset(self):
         return Mission.objects.filter(
             transporter=self.request.user
-        ).select_related("order", "vehicle")
+        ).select_related("order", "vehicle").prefetch_related("order__items__product_item")
 
 
 # ─────────────────────────────────────────────

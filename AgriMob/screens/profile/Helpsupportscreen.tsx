@@ -108,16 +108,16 @@ export default function HelpSupportScreen() {
     {
       icon: "mail-outline",
       label: "Email",
-      sub: "support@agriconnect",
+      sub: "benhamadamohamedse@",
       iconBg: "#f0f8ff",
-      onPress: () => Linking.openURL("mailto:support@agriconnect.com"),
+      onPress: () => Linking.openURL("mailto:benhamadamohamedse@gmail.com"),
     },
     {
-      icon: "phone-outlined" as any,
+      icon: "phone" as any,
       label: "Call",
-      sub: "Mon–Fri 9–5",
+      sub: "0561397092",
       iconBg: "#fff8f0",
-      onPress: () => Linking.openURL("tel:+18005550100"),
+      onPress: () => Linking.openURL("tel:+213561397092"),
     },
   ];
 

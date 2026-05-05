@@ -4,7 +4,12 @@ export interface FarmerMission {
   id: number;
   order: number;
   order_status: string;
-  order_total_price: number;
+  order_total_price: number | null;
+  order_items_summary: {
+    items_count: number;
+    total_quantity: number;
+    description: string;
+  } | null;
   transporter: number | null;
   transporter_email: string | null;
   vehicle: number | null;

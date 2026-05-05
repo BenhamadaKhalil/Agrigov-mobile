@@ -23,8 +23,8 @@ def get_coordinates(address):
 class MissionSerializer(serializers.ModelSerializer):
     transporter_email = serializers.CharField(source="transporter.email", read_only=True)
     order_status = serializers.CharField(source="order.status", read_only=True)
-    order_total_weight = serializers.FloatField(source="order.total_weight", read_only=True)
     order_total_price = serializers.FloatField(source="order.total_price", read_only=True)
+    order_items_summary = serializers.SerializerMethodField()
     vehicle_info = serializers.SerializerMethodField()
     decline_count = serializers.SerializerMethodField()
 
@@ -32,8 +32,8 @@ class MissionSerializer(serializers.ModelSerializer):
         model = Mission
         fields = [
             "id", "order", "order_status",
-            "order_total_weight",
             "order_total_price",
+            "order_items_summary",
             "transporter", "transporter_email",
             "vehicle", "vehicle_info",
             "status",
@@ -49,7 +49,8 @@ class MissionSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "id", "status", "wilaya", "baladiya",
             "transporter", "transporter_email",
-            "order_status", "order_total_weight", "order_total_price",
+            "order_status", "order_total_price",
+            "order_items_summary",
             "vehicle_info", "decline_count",
             # ✅ Coordinates are read-only (auto-set)
             "pickup_latitude", "pickup_longitude",
@@ -65,6 +66,20 @@ class MissionSerializer(serializers.ModelSerializer):
 
     def get_decline_count(self, obj):
         return obj.declines.count()
+
+    def get_order_items_summary(self, obj):
+        """Return a short summary of order items for display."""
+        items = obj.order.items.select_related('product_item').all()
+        total_qty = sum(item.quantity for item in items)
+        names = [item.product_item.title for item in items[:3] if item.product_item]
+        summary = ", ".join(names)
+        if len(items) > 3:
+            summary += f" +{len(items) - 3} more"
+        return {
+            "items_count": len(items),
+            "total_quantity": total_qty,
+            "description": summary or "Order items",
+        }
 
 
 class MissionCreateSerializer(serializers.ModelSerializer):

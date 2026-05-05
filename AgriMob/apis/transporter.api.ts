@@ -31,6 +31,12 @@ export interface ApiMission {
   id: number;
   order: number;
   order_status: string;
+  order_total_price: number | null;
+  order_items_summary: {
+    items_count: number;
+    total_quantity: number;
+    description: string;
+  } | null;
   transporter: number | null;
   transporter_email: string | null;
   vehicle: number | null;
@@ -41,6 +47,10 @@ export interface ApiMission {
   pickup_address: string;
   delivery_address: string;
   notes: string;
+  pickup_latitude: number | null;
+  pickup_longitude: number | null;
+  delivery_latitude: number | null;
+  delivery_longitude: number | null;
   decline_count: number;
   accepted_at: string | null;
   picked_up_at: string | null;
