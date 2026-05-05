@@ -319,7 +319,7 @@ class MissionDetailView(generics.RetrieveAPIView):
         if user.role == "TRANSPORTER":
             return Mission.objects.filter(Q(transporter=user) | Q(wilaya__iexact=getattr(user.transporter_profile, "wilaya", "")))
         if user.role == "FARMER":
-            return Mission.objects.filter(order__farm__farmer__user=user)
+            return Mission.objects.filter(order__farm__farmer=user)
         if user.role == "BUYER":
             return Mission.objects.filter(order__buyer__user=user)
         return Mission.objects.none()

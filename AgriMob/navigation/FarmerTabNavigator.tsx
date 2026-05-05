@@ -9,6 +9,7 @@ import InventoryScreen from "../screens/farmer/InventoryScreen";
 import AddProductScreen from "../screens/farmer/AddProductScreen";
 import EditProductScreen from "../screens/farmer/EditProductScreen";
 import LogisticsScreen from "../screens/farmer/LogisticsScreen";
+import OrderDetailScreen from "../screens/farmer/OrderDetailScreen";
 import OfficialPricesScreen from "../screens/farmer/OfficialPricesScreen";
 import ProfileStack from "./ProfileStack"; // Using the same profile screen
 
@@ -17,6 +18,11 @@ export type InventoryStackParamList = {
   InventoryMain: undefined;
   AddProduct: undefined;
   EditProduct: { productId: number };
+};
+
+export type LogisticsStackParamList = {
+  LogisticsMain: undefined;
+  OrderDetail: { orderId: number };
 };
 
 export type FarmerTabParamList = {
@@ -28,16 +34,27 @@ export type FarmerTabParamList = {
 };
 
 const Tab = createBottomTabNavigator<FarmerTabParamList>();
-const InventoryStack = createNativeStackNavigator<InventoryStackParamList>();
+const InventoryStackNav = createNativeStackNavigator<InventoryStackParamList>();
+const LogisticsStackNav = createNativeStackNavigator<LogisticsStackParamList>();
 
 // Inventory Stack Navigator
 function InventoryStackNavigator() {
   return (
-    <InventoryStack.Navigator screenOptions={{ headerShown: false }}>
-      <InventoryStack.Screen name="InventoryMain" component={InventoryScreen} />
-      <InventoryStack.Screen name="AddProduct" component={AddProductScreen} />
-      <InventoryStack.Screen name="EditProduct" component={EditProductScreen} />
-    </InventoryStack.Navigator>
+    <InventoryStackNav.Navigator screenOptions={{ headerShown: false }}>
+      <InventoryStackNav.Screen name="InventoryMain" component={InventoryScreen} />
+      <InventoryStackNav.Screen name="AddProduct" component={AddProductScreen} />
+      <InventoryStackNav.Screen name="EditProduct" component={EditProductScreen} />
+    </InventoryStackNav.Navigator>
+  );
+}
+
+// Logistics Stack Navigator
+function LogisticsStackNavigator() {
+  return (
+    <LogisticsStackNav.Navigator screenOptions={{ headerShown: false }}>
+      <LogisticsStackNav.Screen name="LogisticsMain" component={LogisticsScreen} />
+      <LogisticsStackNav.Screen name="OrderDetail" component={OrderDetailScreen} />
+    </LogisticsStackNav.Navigator>
   );
 }
 
@@ -73,7 +90,7 @@ export default function FarmerTabNavigator() {
 
       <Tab.Screen name="Inventory" component={InventoryStackNavigator} />
       <Tab.Screen name="Prices" component={OfficialPricesScreen} />
-      <Tab.Screen name="Logistics" component={LogisticsScreen} />
+      <Tab.Screen name="Logistics" component={LogisticsStackNavigator} />
       <Tab.Screen name="Profile" component={ProfileStack} />
     </Tab.Navigator>
   );

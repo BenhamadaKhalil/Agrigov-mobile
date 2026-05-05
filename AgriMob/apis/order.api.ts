@@ -59,9 +59,9 @@ export const orderApi = {
     return apiFetch(`/api/farmer/orders/${qs}`);
   },
 
-  // Update order status — backend action is named change_status
+  // Update order status — uses ViewSet update at PATCH /api/orders/{id}/
   updateStatus: (id: number, status: "confirmed" | "in_transit" | "delivered" | "cancelled") =>
-    apiFetch(`/api/orders/${id}/change_status/`, {
+    apiFetch(`/api/orders/${id}/`, {
       method: "PATCH",
       body: JSON.stringify({ status }),
     }),

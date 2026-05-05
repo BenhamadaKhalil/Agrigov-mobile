@@ -15,7 +15,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { orderApi } from "../../apis/order.api";
+import { farmerApi, FarmerMission } from "../../apis/farmer.api";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -42,43 +45,24 @@ interface LogisticsSummary {
 
 interface Pickup {
   id: string;
+  mission_id: number;
+  order_id: number;
   date_display: string;
   transporter:  string;
   order_number: string;
   product:      string;
+  status:       string;
 }
 
 interface LiveTruck {
+  mission_id:    number;
+  order_id:      number;
   truck_id:      string;
-  distance_km:   number;
-  eta_minutes:   number;
-  progress_pct:  number;
-}
-
-// ─── mocked logistics data (until backend adds these endpoints) ───────────────
-// Replace these with real API calls once the endpoints exist:
-//   GET /api/farmer/logistics/summary/
-//   GET /api/farmer/pickups/upcoming/
-//   GET /api/farmer/trucks/live/
-
-async function fetchLogisticsSummary(): Promise<LogisticsSummary> {
-  // TODO: replace with apiFetch("/api/farmer/logistics/summary/")
-  return { ready_count: 12, transit_count: 8, delivered_count: 24, on_time_pct: 98 };
-}
-
-async function fetchUpcomingPickups(): Promise<Pickup[]> {
-  // TODO: replace with apiFetch("/api/farmer/pickups/upcoming/")
-  return [
-    { id: "1", date_display: "Oct\n24", transporter: "SwiftHaul Logistics", order_number: "#4022", product: "Corn" },
-    { id: "2", date_display: "Oct\n25", transporter: "AgriTrans Co.",        order_number: "#4025", product: "Rice" },
-  ];
-}
-
-async function fetchLiveTrucks(): Promise<LiveTruck[]> {
-  // TODO: replace with apiFetch("/api/farmer/trucks/live/")
-  return [
-    { truck_id: "TRK-8921", distance_km: 20, eta_minutes: 45, progress_pct: 65 },
-  ];
+  transporter:   string;
+  pickup:        string;
+  delivery:      string;
+  status:        string;
+  picked_up_at:  string | null;
 }
 
 // ─── status config ────────────────────────────────────────────────────────────
@@ -134,9 +118,19 @@ const StatBox = ({
   </View>
 );
 
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+function formatShortDate(iso: string) {
+  const d = new Date(iso);
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${months[d.getMonth()]}\n${d.getDate()}`;
+}
+
 // ─── main ─────────────────────────────────────────────────────────────────────
 
 export default function LogisticsScreen() {
+  const navigation = useNavigation<any>();
+
   const [orders, setOrders]     = useState<Order[]>([]);
   const [summary, setSummary]   = useState<LogisticsSummary | null>(null);
   const [pickups, setPickups]   = useState<Pickup[]>([]);
@@ -149,14 +143,14 @@ export default function LogisticsScreen() {
   const fetchAll = useCallback(async () => {
     try {
       setError(null);
-      const [ordersData, sum, piks, liveT]: [any, any, any, any] = await Promise.all([
+      const [ordersData, missionsData]: [any, any] = await Promise.all([
         orderApi.myOrders(),
-        fetchLogisticsSummary(),
-        fetchUpcomingPickups(),
-        fetchLiveTrucks(),
+        farmerApi.myMissions(),
       ]);
+
+      // ── Map orders ──
       const rawOrders = ordersData?.results ?? ordersData ?? [];
-      const mappedOrders = rawOrders.map((o: any) => ({
+      const mappedOrders: Order[] = rawOrders.map((o: any) => ({
         id: o.id,
         order_number: o.id ? `ORD-${o.id}` : "Unknown",
         buyer_name: o.buyer || "Unknown",
@@ -166,9 +160,54 @@ export default function LogisticsScreen() {
         created_at: o.created_at || new Date().toISOString(),
       }));
       setOrders(mappedOrders);
-      setSummary(sum);
-      setPickups(piks);
-      setTrucks(liveT);
+
+      // ── Map missions ──
+      const rawMissions: FarmerMission[] = missionsData?.results ?? missionsData ?? [];
+
+      // Summary stats from real data
+      const readyCount = rawMissions.filter((m) => ["pending", "accepted"].includes(m.status)).length;
+      const transitCount = rawMissions.filter((m) => ["picked_up", "in_transit"].includes(m.status)).length;
+      const deliveredCount = rawMissions.filter((m) => m.status === "delivered").length;
+      const total = rawMissions.length;
+      const onTimePct = total > 0 ? Math.round(((deliveredCount + readyCount + transitCount) / total) * 100) : 100;
+
+      setSummary({
+        ready_count: readyCount,
+        transit_count: transitCount,
+        delivered_count: deliveredCount,
+        on_time_pct: onTimePct,
+      });
+
+      // Upcoming pickups: accepted missions awaiting pickup
+      const upcomingPickups: Pickup[] = rawMissions
+        .filter((m) => ["pending", "accepted"].includes(m.status))
+        .map((m) => ({
+          id: String(m.id),
+          mission_id: m.id,
+          order_id: m.order,
+          date_display: formatShortDate(m.created_at),
+          transporter: m.transporter_email || "Awaiting Transporter",
+          order_number: `#${m.order}`,
+          product: m.pickup_address || m.wilaya,
+          status: m.status,
+        }));
+      setPickups(upcomingPickups);
+
+      // Live trucks: missions that are picked_up or in_transit
+      const liveTrucks: LiveTruck[] = rawMissions
+        .filter((m) => ["picked_up", "in_transit"].includes(m.status))
+        .map((m) => ({
+          mission_id: m.id,
+          order_id: m.order,
+          truck_id: m.vehicle_info || `MSN-${m.id}`,
+          transporter: m.transporter_email || "Unknown",
+          pickup: m.pickup_address || m.wilaya,
+          delivery: m.delivery_address || "Destination",
+          status: m.status,
+          picked_up_at: m.picked_up_at,
+        }));
+      setTrucks(liveTrucks);
+
     } catch {
       setError("Could not load logistics data.");
     } finally {
@@ -189,6 +228,10 @@ export default function LogisticsScreen() {
       o.product_name.toLowerCase().includes(q)
     );
   });
+
+  const navigateToDetail = (orderId: number) => {
+    navigation.navigate("OrderDetail", { orderId });
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -266,7 +309,12 @@ export default function LogisticsScreen() {
                 EMOJI_MAP[order.product_name] ??
                 "📦";
               return (
-                <View key={order.id} style={styles.orderCard}>
+                <TouchableOpacity
+                  key={order.id}
+                  style={styles.orderCard}
+                  activeOpacity={0.7}
+                  onPress={() => navigateToDetail(order.id)}
+                >
                   <View style={styles.orderHeader}>
                     <Text style={styles.orderId}>{order.order_number}</Text>
                     <View style={[styles.statusBadge, { backgroundColor: cfg.bg }]}>
@@ -290,11 +338,9 @@ export default function LogisticsScreen() {
                         </Text>
                       )}
                     </View>
-                    <TouchableOpacity style={styles.moreBtn}>
-                      <MaterialIcons name="more-vert" size={17} color="#9ca3af" />
-                    </TouchableOpacity>
+                    <MaterialIcons name="chevron-right" size={20} color="#d1d5db" />
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })
           )}
@@ -305,8 +351,10 @@ export default function LogisticsScreen() {
               <Text style={styles.sectionHead}>Upcoming Pickups</Text>
               <View style={styles.card}>
                 {pickups.map((p, i) => (
-                  <View
+                  <TouchableOpacity
                     key={p.id}
+                    activeOpacity={0.7}
+                    onPress={() => navigateToDetail(p.order_id)}
                     style={[
                       styles.pickupRow,
                       i < pickups.length - 1 && styles.pickupBorder,
@@ -318,11 +366,21 @@ export default function LogisticsScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.pickupTitle}>{p.transporter}</Text>
                       <Text style={styles.orderMeta}>
-                        {p.order_number} · {p.product}
+                        Order {p.order_number} · {p.product}
                       </Text>
                     </View>
-                    <MaterialIcons name="chevron-right" size={17} color="#d1d5db" />
-                  </View>
+                    <View style={[
+                      styles.pickupStatusBadge,
+                      { backgroundColor: p.status === "accepted" ? "#dbeafe" : "#fff3e0" }
+                    ]}>
+                      <Text style={[
+                        styles.pickupStatusText,
+                        { color: p.status === "accepted" ? "#1d4ed8" : "#c05c00" }
+                      ]}>
+                        {p.status === "accepted" ? "Assigned" : "Awaiting"}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             </>
@@ -333,28 +391,58 @@ export default function LogisticsScreen() {
             <>
               <Text style={styles.sectionHead}>Live Tracking</Text>
               {trucks.map((truck) => (
-                <View key={truck.truck_id} style={styles.trackCard}>
+                <TouchableOpacity
+                  key={truck.mission_id}
+                  style={styles.trackCard}
+                  activeOpacity={0.8}
+                  onPress={() => navigateToDetail(truck.order_id)}
+                >
                   <View style={styles.trackRow}>
                     <LiveDot />
-                    <Text style={styles.trackTitle}>Truck {truck.truck_id}</Text>
+                    <Text style={styles.trackTitle}>
+                      {truck.truck_id}
+                    </Text>
+                    <View style={styles.liveLabel}>
+                      <Text style={styles.liveLabelText}>
+                        {truck.status === "in_transit" ? "IN TRANSIT" : "PICKED UP"}
+                      </Text>
+                    </View>
                   </View>
                   <Text style={styles.trackSub}>
-                    {truck.distance_km} km away · Arrival in {truck.eta_minutes} min
+                    🚚 {truck.transporter}
                   </Text>
-                  <View style={styles.progressTrack}>
-                    <View
-                      style={[
-                        styles.progressFill,
-                        { width: `${truck.progress_pct}%` as any },
-                      ]}
-                    />
+                  <View style={styles.routeRow}>
+                    <View style={styles.routePoint}>
+                      <MaterialIcons name="my-location" size={12} color="#0df20d" />
+                      <Text style={styles.routeText} numberOfLines={1}>{truck.pickup}</Text>
+                    </View>
+                    <MaterialIcons name="arrow-forward" size={12} color="rgba(255,255,255,0.4)" />
+                    <View style={styles.routePoint}>
+                      <MaterialIcons name="place" size={12} color="#fbbf24" />
+                      <Text style={styles.routeText} numberOfLines={1}>{truck.delivery}</Text>
+                    </View>
                   </View>
-                  <View style={styles.trackLabels}>
-                    <Text style={styles.trackLabel}>Farm</Text>
-                    <Text style={styles.trackLabel}>Destination</Text>
-                  </View>
-                </View>
+                  {truck.status === "in_transit" && (
+                    <View style={styles.progressTrack}>
+                      <View style={[styles.progressFill, { width: "65%" as any }]} />
+                    </View>
+                  )}
+                </TouchableOpacity>
               ))}
+            </>
+          )}
+
+          {/* No missions state */}
+          {!loading && pickups.length === 0 && trucks.length === 0 && (
+            <>
+              <Text style={styles.sectionHead}>Missions</Text>
+              <View style={styles.noMissionCard}>
+                <MaterialIcons name="local-shipping" size={36} color="#d1d5db" />
+                <Text style={styles.noMissionTitle}>No Active Missions</Text>
+                <Text style={styles.noMissionSub}>
+                  Confirm an order and create a mission to assign a transporter.
+                </Text>
+              </View>
             </>
           )}
 
@@ -482,7 +570,6 @@ const styles = StyleSheet.create({
   orderBuyer:       { fontSize: 13, fontWeight: "700", color: "#1a2e1a" },
   orderMeta:        { fontSize: 11, color: "#9ca3af", marginTop: 1 },
   orderTransporter: { fontSize: 11, color: "#6b7280", marginTop: 2 },
-  moreBtn:          { padding: 4 },
 
   card: {
     backgroundColor: "#fff",
@@ -510,6 +597,9 @@ const styles = StyleSheet.create({
   dateText:    { fontSize: 10, fontWeight: "800", color: "#065f46", textAlign: "center" },
   pickupTitle: { fontSize: 12, fontWeight: "700", color: "#1a2e1a" },
 
+  pickupStatusBadge: { borderRadius: 20, paddingVertical: 3, paddingHorizontal: 9 },
+  pickupStatusText:  { fontSize: 9, fontWeight: "700" },
+
   trackCard: {
     backgroundColor: "#047857",
     borderRadius: 15,
@@ -518,8 +608,25 @@ const styles = StyleSheet.create({
   },
   trackRow:  { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 3 },
   liveDot:   { width: 7, height: 7, borderRadius: 4, backgroundColor: "#0df20d" },
-  trackTitle: { fontSize: 14, fontWeight: "700", color: "#fff" },
+  trackTitle: { fontSize: 14, fontWeight: "700", color: "#fff", flex: 1 },
   trackSub:   { fontSize: 11, color: "#a7f3d0", marginBottom: 10 },
+
+  liveLabel: {
+    backgroundColor: "rgba(13,242,13,0.2)",
+    borderRadius: 8,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+  },
+  liveLabelText: { fontSize: 9, fontWeight: "800", color: "#0df20d", letterSpacing: 0.5 },
+
+  routeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 10,
+  },
+  routePoint: { flexDirection: "row", alignItems: "center", gap: 4, flex: 1 },
+  routeText: { fontSize: 10, color: "#a7f3d0", flex: 1 },
 
   progressTrack: {
     height: 5,
@@ -528,9 +635,20 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   progressFill: { height: "100%", backgroundColor: "#0df20d", borderRadius: 10 },
-  trackLabels: { flexDirection: "row", justifyContent: "space-between", marginTop: 4 },
-  trackLabel:  { fontSize: 9, color: "#a7f3d0" },
 
   emptyState: { alignItems: "center", paddingVertical: 30, gap: 6 },
   emptyText:  { fontSize: 13, color: "#9ca3af" },
+
+  noMissionCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    borderWidth: 0.5,
+    borderColor: "#e4efe4",
+    alignItems: "center",
+    padding: 30,
+    gap: 8,
+    marginBottom: 12,
+  },
+  noMissionTitle: { fontSize: 14, fontWeight: "700", color: "#9ca3af" },
+  noMissionSub: { fontSize: 12, color: "#c4c4c4", textAlign: "center", maxWidth: 260 },
 });
