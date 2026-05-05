@@ -20,7 +20,6 @@ class Order(models.Model):
         'delivered': [],
         'cancelled': [],
     }
-
     STATUS_PERMISSIONS = {
         'FARMER': ['confirmed'],
         'BUYER': ['cancelled'],
@@ -50,26 +49,16 @@ class Order(models.Model):
     def can_transition(self, new_status):
         return new_status in self.VALID_TRANSITIONS.get(self.status, [])
 
-    def get_allowed_statuses_for_user(self, user):
-        if not user or not user.is_authenticated:
-            return []
-
-        role_allowed = self.STATUS_PERMISSIONS.get(user.role, [])
-
-        valid_transitions = self.VALID_TRANSITIONS.get(self.status, [])
-
-        allowed = [s for s in role_allowed if s in valid_transitions]
-
-        if user.role == 'BUYER' and self.status != 'pending':
-            allowed = [s for s in allowed if s != 'cancelled']
-
-        return allowed
-
     def can_user_change_status(self, user, new_status):
+        print("STATUS:", self.status)
+        print("NEW:", new_status)
         if not self.can_transition(new_status):
             return False
 
-        return new_status in self.get_allowed_statuses_for_user(user)
+        if user.role == "BUYER":
+            return self.status in ["pending", "confirmed"] and new_status == "cancelled"
+
+        return new_status in self.STATUS_PERMISSIONS.get(user.role, [])
 
 
 

@@ -6,9 +6,9 @@ from .serializers import VehicleSerializer
 class CreateVehicleView(generics.CreateAPIView):
     serializer_class = VehicleSerializer
     permission_classes = [permissions.IsAuthenticated]
-
+    
     def get_serializer_context(self):
-        return {"request": self.request}
+        return super().get_serializer_context()
 
 
 class ListMyVehiclesView(generics.ListAPIView):

@@ -6,38 +6,64 @@ from users.models import User
 from missions.models import Mission
 from official_prices.models import OfficialPrice
 from .utils import get_region_from_wilaya
+from django.db.models import F, Sum, DecimalField, ExpressionWrapper
+
+
 def get_region_stats(region_name):
-    
-    """Get all statistics for a region"""
     try:
         region = Region.objects.get(name=region_name)
     except ObjectDoesNotExist:
         raise ValueError(f"Region '{region_name}' does not exist.")
     
-    wilayas = region.wilayas
+    wilayas = region.wilayas # This is your list of strings
     
-    # User Counts
-    farmers_count = User.objects.filter(role="FARMER", farmer_profile__wilaya__in=wilayas).count()
-    active_farmers = User.objects.filter(role="FARMER", farmer_profile__wilaya__in=wilayas, farm__products__isnull=False).distinct().count()
-    transporters_count = User.objects.filter(role="TRANSPORTER", transporter_profile__wilaya__in=wilayas).count()
+    # 1. Farmer Counts (wilaya is a CharField in FarmerProfile)
+    farmers_count = User.objects.filter(
+        role="FARMER", 
+        farmer_profile__wilaya__in=wilayas
+    ).count()
+
+    active_farmers = User.objects.filter(
+        role="FARMER", 
+        farmer_profile__wilaya__in=wilayas, 
+        farms__products__isnull=False # Ensure 'farms' plural
+    ).distinct().count()
+
+    # 2. Transporters (wilaya is a CharField in TransporterProfile)
+    transporters_count = User.objects.filter(
+        role="TRANSPORTER", 
+        transporter_profile__wilaya__in=wilayas
+    ).count()
     
-    # FIXED: Now filters buyers by wilaya
-    buyers_count = User.objects.filter(role="BUYER", buyer_profile__wilaya__in=wilayas).count()
+    # 3. Buyers (wilaya is a CharField in BuyerProfile - after you add it)
+    buyers_count = User.objects.filter(
+        role="BUYER", 
+        buyer_profile__wilaya__in=wilayas
+    ).count()
     
-    # Orders & Revenue
+    # 4. Orders (farm is a relationship, but farm.wilaya is a CharField)
     region_orders = Order.objects.filter(farm__wilaya__in=wilayas)
     orders_count = region_orders.count()
     revenue = region_orders.filter(status="delivered").aggregate(total=Sum('total_price'))['total'] or 0
     
-    # Missions
-    completed_missions = Mission.objects.filter(order__farm__wilaya__in=wilayas, status="delivered").count()
+    # 5. Missions
+    completed_missions = Mission.objects.filter(
+        order__farm__wilaya__in=wilayas, 
+        status="delivered"
+    ).count()
     
-    # Top Products
-    top_products = OrderItem.objects.filter(order__farm__wilaya__in=wilayas).values(
-        'product__title'
-    ).annotate(
+# 6. Top Products
+    top_products = OrderItem.objects.filter(
+        order__farm__wilaya__in=wilayas
+    ).values('product_item__product__ministry_product__name').annotate(
         total_quantity=Sum('quantity'),
-        total_value=Sum('price')
+        # Wrap the math to tell Django it's a Decimal result
+        total_value=Sum(
+            ExpressionWrapper(
+                F('product_item__unit_price') * F('quantity'), 
+                output_field=DecimalField()
+            )
+        )
     ).order_by('-total_value')[:5]
     
     return {

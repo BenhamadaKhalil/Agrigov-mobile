@@ -1,11 +1,30 @@
 from rest_framework import serializers
 from .models import Mission, MissionDecline
 from vehicules.models import Vehicle
+import requests  # ✅ Add this import
+
+
+# ✅ Add geocoding function
+def get_coordinates(address):
+    """Convert address to latitude/longitude using Nominatim (OSM - free, no API key)"""
+    if not address:
+        return None, None
+    try:
+        url = f"https://nominatim.openstreetmap.org/search?q={address}&format=json&limit=1"
+        response = requests.get(url, headers={'User-Agent': 'AgriGov-App/1.0'})
+        data = response.json()
+        if data:
+            return float(data[0]['lat']), float(data[0]['lon'])
+    except Exception:
+        pass
+    return None, None
 
 
 class MissionSerializer(serializers.ModelSerializer):
     transporter_email = serializers.CharField(source="transporter.email", read_only=True)
     order_status = serializers.CharField(source="order.status", read_only=True)
+    order_total_weight = serializers.FloatField(source="order.total_weight", read_only=True)
+    order_total_price = serializers.FloatField(source="order.total_price", read_only=True)
     vehicle_info = serializers.SerializerMethodField()
     decline_count = serializers.SerializerMethodField()
 
@@ -13,11 +32,16 @@ class MissionSerializer(serializers.ModelSerializer):
         model = Mission
         fields = [
             "id", "order", "order_status",
+            "order_total_weight",
+            "order_total_price",
             "transporter", "transporter_email",
             "vehicle", "vehicle_info",
             "status",
             "wilaya", "baladiya",
             "pickup_address", "delivery_address", "notes",
+            # ✅ Add coordinates to API response
+            "pickup_latitude", "pickup_longitude",
+            "delivery_latitude", "delivery_longitude",
             "decline_count",
             "accepted_at", "picked_up_at", "delivered_at",
             "created_at", "updated_at",
@@ -25,7 +49,11 @@ class MissionSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "id", "status", "wilaya", "baladiya",
             "transporter", "transporter_email",
-            "order_status", "vehicle_info", "decline_count",
+            "order_status", "order_total_weight", "order_total_price",
+            "vehicle_info", "decline_count",
+            # ✅ Coordinates are read-only (auto-set)
+            "pickup_latitude", "pickup_longitude",
+            "delivery_latitude", "delivery_longitude",
             "accepted_at", "picked_up_at", "delivered_at",
             "created_at", "updated_at",
         ]
@@ -53,17 +81,14 @@ class MissionCreateSerializer(serializers.ModelSerializer):
         if farmer_profile is None:
             raise serializers.ValidationError("Only farmers can create missions.")
 
-        # ✅ FIXED: Compare User with User
         if order.farm.farmer != request.user:
             raise serializers.ValidationError("This order does not belong to your farm.")
 
-        # Only confirmed orders can get a mission
         if order.status != "confirmed":
             raise serializers.ValidationError(
                 "A mission can only be created for a confirmed order."
             )
 
-        # No duplicate missions
         if hasattr(order, "mission"):
             raise serializers.ValidationError("This order already has a mission.")
 
@@ -80,6 +105,18 @@ class MissionCreateSerializer(serializers.ModelSerializer):
         # Auto-fill pickup address from farm if not provided
         if not validated_data.get("pickup_address"):
             validated_data["pickup_address"] = farm.address
+
+        # ✅ Get coordinates for pickup address
+        pickup_lat, pickup_lng = get_coordinates(validated_data.get("pickup_address", ""))
+        if pickup_lat:
+            validated_data["pickup_latitude"] = pickup_lat
+            validated_data["pickup_longitude"] = pickup_lng
+
+        # ✅ Get coordinates for delivery address
+        delivery_lat, delivery_lng = get_coordinates(validated_data.get("delivery_address", ""))
+        if delivery_lat:
+            validated_data["delivery_latitude"] = delivery_lat
+            validated_data["delivery_longitude"] = delivery_lng
 
         return Mission.objects.create(**validated_data)
 

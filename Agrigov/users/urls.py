@@ -2,6 +2,7 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     AllUsersView,
+    DeleteUserView,
     RegisterView,
     LoginView,
     MeView,
@@ -36,4 +37,5 @@ urlpatterns = [
     path("<int:user_id>/reject/", RejectUserView.as_view(), name="reject-user"),
     path("<int:pk>/", UserDetailView.as_view(), name="user-detail"),
     path("", AllUsersView.as_view(), name="all-users"),
+    path("<int:user_id>/delete/", DeleteUserView.as_view(), name="delete-user"),
 ]

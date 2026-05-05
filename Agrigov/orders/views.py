@@ -69,11 +69,9 @@ class OrderViewSet(viewsets.ModelViewSet):
 
 
 
-    @action(detail=True, methods=['patch'])
-    def change_status(self, request, pk=None):
+    def update(self, request, *args, **kwargs):
         order = self.get_object()
         new_status = request.data.get('status')
-
         if not new_status:
             return Response({'error': 'Status required'}, status=400)
 
@@ -86,6 +84,14 @@ class OrderViewSet(viewsets.ModelViewSet):
         # TRIGGER INVOICE WHEN DELIVERED
         if new_status == "delivered":
             handle_invoice_generation(order)
+            
+        if new_status == "cancelled":
+            for item in order.items.select_related('product_item__product'):
+                product = item.product_item.product
+                
+                if product:
+                    product.stock += item.quantity
+                    product.save()
 
         return Response(
             OrderSerializer(order, context={'request': request}).data

@@ -1,6 +1,5 @@
 from rest_framework import serializers
 from django.db import transaction
-import cloudinary.uploader
 
 from .models import Product, ProductImage, MinistryProduct
 from categories.models import Category
@@ -201,8 +200,7 @@ class UpdateProductSerializer(serializers.ModelSerializer):
 
         if images is not None:
             for img in instance.images.all():
-                if getattr(img.image, 'public_id', None):
-                    cloudinary.uploader.destroy(img.image.public_id)
+                img.image.delete(save=False)
                 img.delete()
             for img in images:
                 ProductImage.objects.create(product=instance, image=img)

@@ -9,10 +9,13 @@ class ReviewViewSet(viewsets.ModelViewSet):
     serializer_class = ReviewSerializer
     permission_classes = [IsAuthenticated]
     def get_queryset(self):
-        product_id = self.request.query_params.get('product_id')
-        if product_id:
-            return self.queryset.filter(product_id=product_id)
-        return self.queryset
+        return Review.objects.select_related(
+            "product",
+            "product__farm",
+            "product__ministry_product"
+        ).prefetch_related(
+            "product__images"
+        )
 
 class BuyerReviewViewSet(viewsets.ModelViewSet):
     serializer_class = ReviewSerializer

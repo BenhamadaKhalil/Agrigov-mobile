@@ -79,6 +79,13 @@ class FarmerProfile(models.Model):
         folder="AGRIGOV/farmers/ids",
         transformation={"quality": "auto", "fetch_format": "auto"}
     )
+    profile_image = CloudinaryField(
+    "profile_image",
+    folder="AGRIGOV/profiles/farmers",
+    transformation={"quality": "auto", "fetch_format": "auto"},
+    blank=True,
+    null=True
+    )
 
     # Validation fields
     is_validated = models.BooleanField(default=False)
@@ -107,11 +114,6 @@ class FarmerProfile(models.Model):
 
     def __str__(self):
         return f"FarmerProfile - {self.user.email}"
-    @property
-    def region(self):
-        if self.wilaya:
-            return get_region_from_wilaya(self.wilaya)
-        return "Unknown"
 
 class TransporterProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="transporter_profile")
@@ -129,6 +131,13 @@ class TransporterProfile(models.Model):
         folder="AGRIGOV/transporters/greyCards",
         transformation={"quality": "auto", "fetch_format": "auto"}
     )
+    profile_image = CloudinaryField(
+    "profile_image",
+    folder="AGRIGOV/profiles/transporters",
+    transformation={"quality": "auto", "fetch_format": "auto"},
+    blank=True,
+    null=True
+)
 
     # Validation fields
     is_validated = models.BooleanField(default=False)
@@ -157,11 +166,6 @@ class TransporterProfile(models.Model):
 
     def __str__(self):
         return f"TransporterProfile - {self.user.email}"
-    @property
-    def region(self):
-        if self.wilaya:
-            return get_region_from_wilaya(self.wilaya)
-        return "Unknown"
 
 
 class BuyerProfile(models.Model):
@@ -173,6 +177,14 @@ class BuyerProfile(models.Model):
         folder="AGRIGOV/buyers/businessLicenses",
         transformation={"quality": "auto", "fetch_format": "auto"}
     )
+    profile_image = CloudinaryField(
+    "profile_image",
+    folder="AGRIGOV/profiles/buyers",
+    transformation={"quality": "auto", "fetch_format": "auto"},
+    blank=True,
+    null=True
+)
+    wilaya = models.CharField(max_length=100, blank=True)
 
     # Validation fields
     is_validated = models.BooleanField(default=False)

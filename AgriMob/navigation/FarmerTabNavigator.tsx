@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 
 // Import farmer screens
-import FarmerDashboard from "../screens/farmer/FarmerDashboard";
+//import FarmerDashboard from "../screens/farmer/FarmerDashboard";
 import InventoryScreen from "../screens/farmer/InventoryScreen";
 import AddProductScreen from "../screens/farmer/AddProductScreen";
 import EditProductScreen from "../screens/farmer/EditProductScreen";
@@ -70,7 +70,7 @@ export default function FarmerTabNavigator() {
         headerShown: false,
       })}
     >
-      <Tab.Screen name="Dashboard" component={FarmerDashboard} />
+
       <Tab.Screen name="Inventory" component={InventoryStackNavigator} />
       <Tab.Screen name="Prices" component={OfficialPricesScreen} />
       <Tab.Screen name="Logistics" component={LogisticsScreen} />

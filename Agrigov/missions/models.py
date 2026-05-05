@@ -37,7 +37,6 @@ class Mission(models.Model):
         related_name="mission"
     )
 
-    # Set when a transporter accepts
     transporter = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -61,13 +60,18 @@ class Mission(models.Model):
         db_index=True
     )
 
-    # Snapshot of farm region at mission creation time
     wilaya = models.CharField(max_length=100)
     baladiya = models.CharField(max_length=100, blank=True)
 
     pickup_address = models.TextField(blank=True)
     delivery_address = models.TextField(blank=True)
     notes = models.TextField(blank=True)
+
+    # ✅ ADD COORDINATES FIELDS
+    pickup_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    pickup_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    delivery_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    delivery_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
 
     accepted_at = models.DateTimeField(null=True, blank=True)
     picked_up_at = models.DateTimeField(null=True, blank=True)
@@ -83,11 +87,6 @@ class Mission(models.Model):
 
 
 class MissionDecline(models.Model):
-    """
-    Tracks which transporters declined a mission.
-    Declined transporters won't see the mission again,
-    but it stays open (pending) for other regional transporters.
-    """
     mission = models.ForeignKey(
         Mission,
         on_delete=models.CASCADE,

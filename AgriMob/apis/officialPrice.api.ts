@@ -1,13 +1,24 @@
 import { apiFetch } from "./api";
 
+export interface MinistryProduct {
+  id: number;
+  name: string;
+  category: number;
+  image?: string;
+  description?: string;
+}
+
 export interface OfficialPrice {
   id: number;
-  product_name: string;
-  price: number;
+  product: number;
+  product_detail: MinistryProduct;
   wilaya: string | null;
-  region: string | null;
-  start_date: string;
-  end_date: string | null;
+  region_name: string | null;
+  min_price: string;
+  max_price: string;
+  unit: string;
+  valid_from: string;
+  valid_until: string | null;
   is_active: boolean;
 }
 

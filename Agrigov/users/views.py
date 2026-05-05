@@ -4,9 +4,10 @@ from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser
 from django.db.models import Q
-
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
 from missions.permissions import IsAdmin
 from .models import MinistryProfile, User, FarmerProfile, TransporterProfile, BuyerProfile
 from .serializers import (
@@ -63,6 +64,30 @@ class LoginView(APIView):
         serializer.is_valid(raise_exception=True)
 
         user = serializer.validated_data["user"]
+        
+        # ✅ Check if user is validated (for farmers, transporters, buyers)
+        if user.role in ["FARMER", "TRANSPORTER", "BUYER"]:
+            is_validated = False
+            
+            # Check validation status based on role
+            if user.role == "FARMER" and hasattr(user, 'farmer_profile'):
+                is_validated = user.farmer_profile.is_validated
+            elif user.role == "TRANSPORTER" and hasattr(user, 'transporter_profile'):
+                is_validated = user.transporter_profile.is_validated
+            elif user.role == "BUYER" and hasattr(user, 'buyer_profile'):
+                is_validated = user.buyer_profile.is_validated
+            
+            # Block login if not validated
+            if not is_validated:
+                return Response(
+                    {
+                        "status": "error",
+                        "code": 403,
+                        "message": "Your account is pending validation by the Ministry. Please wait for approval."
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        
         refresh = RefreshToken.for_user(user)
 
         return Response(
@@ -85,6 +110,7 @@ class MeView(APIView):
 
     def get(self, request):
         serializer = MeSerializer(request.user)
+
         return Response(
             {
                 "status": "success",
@@ -94,109 +120,85 @@ class MeView(APIView):
             status=status.HTTP_200_OK
         )
 
-    def patch(self, request):
-        user = request.user
-        allowed_fields = ["username", "email", "phone"]
-        for field in allowed_fields:
-            if field in request.data:
-                setattr(user, field, request.data[field])
-        user.save(update_fields=[f for f in allowed_fields if f in request.data])
-        return Response(
-            {
-                "status": "success",
-                "code": status.HTTP_200_OK,
-                "message": "Profile updated successfully",
-                "data": UserSerializer(user).data,
-            },
-            status=status.HTTP_200_OK,
+
+
+class FarmerProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get(self, request):
+        profile = getattr(request.user, "farmer_profile", None)
+        if not profile:
+            return Response({"detail": "Profile not found"}, status=404)
+
+        serializer = FarmerProfileSerializer(profile)
+        return Response(serializer.data)
+
+    def post(self, request):
+        if hasattr(request.user, "farmer_profile"):
+            return Response(
+                {"detail": "Profile already exists"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = FarmerProfileSerializer(
+            data=request.data,
+            context={"request": request}
         )
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=201)
 
+        return Response(serializer.errors, status=400)
 
-class FarmerProfileView(generics.CreateAPIView):
-    serializer_class = FarmerProfileSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    parser_classes = [JSONParser, MultiPartParser, FormParser]
+    def put(self, request):
+        profile = getattr(request.user, "farmer_profile", None)
+        if not profile:
+            return Response({"detail": "Profile not found"}, status=404)
 
-    def get_serializer_context(self):
-        return super().get_serializer_context()
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        profile = serializer.save()
-
-        return Response(
-            {
-                "status": "success",
-                "code": status.HTTP_201_CREATED,
-                "message": "Farmer profile created successfully",
-                "data": {
-                    "profile": FarmerProfileSerializer(profile).data
-                }
-            },
-            status=status.HTTP_201_CREATED
+        serializer = FarmerProfileSerializer(
+            profile, data=request.data, partial=True
         )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+
+        return Response(serializer.errors, status=400)
 
 
-class TransporterProfileView(generics.CreateAPIView):
+class TransporterProfileView(generics.RetrieveUpdateAPIView, generics.CreateAPIView):
     serializer_class = TransporterProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
-    parser_classes = [JSONParser, MultiPartParser, FormParser]
+    parser_classes = [MultiPartParser, FormParser]
 
-    def get_serializer_context(self):
-        return super().get_serializer_context()
+    def get_queryset(self):
+        return TransporterProfile.objects.filter(user=self.request.user)
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        profile = serializer.save()
+    def get_object(self):
+        return TransporterProfile.objects.get(user=self.request.user)
 
-        return Response(
-            {
-                "status": "success",
-                "code": status.HTTP_201_CREATED,
-                "message": "Transporter profile created successfully",
-                "data": {
-                    "profile": TransporterProfileSerializer(profile).data
-                }
-            },
-            status=status.HTTP_201_CREATED
-        )
-
-
-class BuyerProfileView(generics.CreateAPIView):
+class BuyerProfileView(generics.RetrieveUpdateAPIView, generics.CreateAPIView):
     serializer_class = BuyerProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
-    parser_classes = [JSONParser, MultiPartParser, FormParser]
+    parser_classes = [MultiPartParser, FormParser]
 
-    def get_serializer_context(self):
-        return super().get_serializer_context()
+    def get_queryset(self):
+        return BuyerProfile.objects.filter(user=self.request.user)
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        profile = serializer.save()
+    def get_object(self):
+        return BuyerProfile.objects.get(user=self.request.user)
 
-        return Response(
-            {
-                "status": "success",
-                "code": status.HTTP_201_CREATED,
-                "message": "Buyer profile created successfully",
-                "data": {
-                    "profile": BuyerProfileSerializer(profile).data
-                }
-            },
-            status=status.HTTP_201_CREATED
-        )
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
 
 class MinistryProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = MinistryProfileSerializer
     permission_classes = [IsAdmin]
-
+    
     def get_queryset(self):
         return MinistryProfile.objects.filter(user=self.request.user)
-
+    
     def get_object(self):
         user = self.request.user
         profile, created = MinistryProfile.objects.get_or_create(user=user)
@@ -205,7 +207,7 @@ class MinistryProfileView(generics.RetrieveUpdateAPIView):
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = self.get_serializer(instance)
-
+        
         return Response(
             {
                 "status": "success",
@@ -221,7 +223,7 @@ class MinistryProfileView(generics.RetrieveUpdateAPIView):
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
-
+        
         return Response(
             {
                 "status": "success",
@@ -246,20 +248,20 @@ class PendingUsersView(generics.ListAPIView):
         validated_farmers = FarmerProfile.objects.filter(
             is_validated=True
         ).values_list('user_id', flat=True)
-
+        
         # Get IDs of validated transporters
         validated_transporters = TransporterProfile.objects.filter(
             is_validated=True
         ).values_list('user_id', flat=True)
-
+        
         # Get IDs of validated buyers
         validated_buyers = BuyerProfile.objects.filter(
             is_validated=True
         ).values_list('user_id', flat=True)
-
+        
         # Combine all validated user IDs
         validated_ids = set(validated_farmers) | set(validated_transporters) | set(validated_buyers)
-
+        
         # Get users who are NOT validated
         return User.objects.filter(
             role__in=["FARMER", "TRANSPORTER", "BUYER"]
@@ -268,7 +270,7 @@ class PendingUsersView(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
         page = self.paginate_queryset(queryset)
-
+        
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response({
@@ -276,7 +278,7 @@ class PendingUsersView(generics.ListAPIView):
                 "code": status.HTTP_200_OK,
                 "data": serializer.data
             })
-
+        
         serializer = self.get_serializer(queryset, many=True)
         return Response(
             {
@@ -349,7 +351,7 @@ class ValidateUserView(APIView):
             profile.rejection_reason = ""
             profile.rejected_at = None
             profile.save()
-
+        
         elif user.role == "TRANSPORTER":
             profile = user.transporter_profile
             profile.is_validated = True
@@ -358,7 +360,7 @@ class ValidateUserView(APIView):
             profile.rejection_reason = ""
             profile.rejected_at = None
             profile.save()
-
+        
         elif user.role == "BUYER":
             profile = user.buyer_profile
             profile.is_validated = True
@@ -367,7 +369,7 @@ class ValidateUserView(APIView):
             profile.rejection_reason = ""
             profile.rejected_at = None
             profile.save()
-
+        
         else:
             return Response(
                 {
@@ -445,7 +447,7 @@ class RejectUserView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
-
+        
         # Validate reason length
         if len(reason) > 500:
             return Response(
@@ -499,7 +501,7 @@ class RejectUserView(APIView):
             profile.rejected_at = now
             profile.validated_by = request.user
             profile.save()
-
+        
         elif user.role == "TRANSPORTER":
             profile = user.transporter_profile
             profile.is_validated = False
@@ -507,7 +509,7 @@ class RejectUserView(APIView):
             profile.rejected_at = now
             profile.validated_by = request.user
             profile.save()
-
+        
         elif user.role == "BUYER":
             profile = user.buyer_profile
             profile.is_validated = False
@@ -515,7 +517,7 @@ class RejectUserView(APIView):
             profile.rejected_at = now
             profile.validated_by = request.user
             profile.save()
-
+        
         else:
             return Response(
                 {
@@ -566,10 +568,10 @@ class UserDetailView(generics.RetrieveAPIView):
 
     def retrieve(self, request, *args, **kwargs):
         user = self.get_object()
-
+        
         # Add profile data based on role
         data = UserSerializer(user).data
-
+        
         if user.role == "FARMER" and hasattr(user, 'farmer_profile'):
             profile = user.farmer_profile
             data['profile'] = {
@@ -591,7 +593,7 @@ class UserDetailView(generics.RetrieveAPIView):
                     'rejected_at': profile.rejected_at,
                 }
             }
-
+        
         elif user.role == "TRANSPORTER" and hasattr(user, 'transporter_profile'):
             profile = user.transporter_profile
             data['profile'] = {
@@ -611,7 +613,7 @@ class UserDetailView(generics.RetrieveAPIView):
                     'rejected_at': profile.rejected_at,
                 }
             }
-
+        
         elif user.role == "BUYER" and hasattr(user, 'buyer_profile'):
             profile = user.buyer_profile
             data['profile'] = {
@@ -628,7 +630,7 @@ class UserDetailView(generics.RetrieveAPIView):
                     'rejected_at': profile.rejected_at,
                 }
             }
-
+        
         return Response(
             {
                 "status": "success",
@@ -639,8 +641,20 @@ class UserDetailView(generics.RetrieveAPIView):
             },
             status=status.HTTP_200_OK
         )
-
+        
 class AllUsersView(generics.ListAPIView):
     permission_classes = [IsAdmin]
     serializer_class = UserSerializer
     queryset = User.objects.all().order_by('-created_at')
+
+class DeleteUserView(APIView):
+    permission_classes = [IsAdmin]
+
+    def delete(self, request, user_id):
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({"detail": "User not found"}, status=404)
+
+        user.delete()
+        return Response({"message": f"User {user.email} deleted successfully"}, status=200)

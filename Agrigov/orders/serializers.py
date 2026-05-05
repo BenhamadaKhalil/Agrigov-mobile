@@ -3,18 +3,32 @@ from .models import Order, OrderItem, ProductItem
 from products.serializers import ProductSerializer
 
 class ProductItemSerializer(serializers.ModelSerializer):
+    product_id = serializers.IntegerField(source="product.id", read_only=True)
+    has_review = serializers.SerializerMethodField()
     class Meta:
         model = ProductItem
         fields = [
             "id",
+            "product_id",
             "title",
             "description",
             "season",
             "unit_price",
             "category_name",
+            "has_review",
         ]
+    def get_has_review(self, obj):
+        request = self.context.get("request")
+        if not request:
+            return False
 
+        user = request.user
+        if not hasattr(user, "buyer_profile"):
+            return False
 
+        return obj.product.reviews.filter(buyer=user.buyer_profile).exists()
+        
+        
 class OrderItemSerializer(serializers.ModelSerializer):
     product = ProductItemSerializer(source="product_item", read_only=True)
     total_price = serializers.SerializerMethodField()
@@ -27,14 +41,13 @@ class OrderItemSerializer(serializers.ModelSerializer):
         if not obj.product_item:
             return 0
         return obj.product_item.unit_price * obj.quantity
-
+    
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     buyer = serializers.StringRelatedField()
     farm = serializers.StringRelatedField()
     allowed_statuses = serializers.SerializerMethodField()
-    invoice_pdf = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -46,21 +59,24 @@ class OrderSerializer(serializers.ModelSerializer):
             'status',
             'created_at',
             'items',
-            'allowed_statuses',
-            'invoice_pdf'
+            'allowed_statuses'
         ]
 
-    def get_invoice_pdf(self, obj):
-        if hasattr(obj, 'invoice') and obj.invoice:
-            return obj.invoice.pdf_url
-        return None
-
     def get_allowed_statuses(self, obj):
-        request = self.context.get('request')
-        if request:
-            return obj.get_allowed_statuses_for_user(request.user)
-        return []
+        request = self.context.get("request")
+        
+        if not request or not request.user:
+            return []
 
+        user = request.user
+
+        possible = obj.VALID_TRANSITIONS.get(obj.status, [])
+
+        return [
+            status
+            for status in possible
+            if obj.can_user_change_status(user, status)
+        ]
 
 # CHECKOUT SERIALIZER
 class CheckoutSerializer(serializers.Serializer):
@@ -82,7 +98,7 @@ class CheckoutSerializer(serializers.Serializer):
             if not cart:
                 raise serializers.ValidationError("Cart not found")
         else:
-            cart, created = Cart.objects.get_or_create(buyer=buyer)
+            cart = getattr(buyer, 'cart', None)
 
         if not cart or not cart.items.exists():
             raise serializers.ValidationError("Cart is empty")

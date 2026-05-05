@@ -32,6 +32,9 @@ def create_orders_from_cart(buyer, cart):
             if item.quantity > item.product.stock:
                 raise ValueError(f"Not enough stock for {item.product.name}")
 
+            item.product.stock -= item.quantity
+            item.product.save()
+
             #CREATE PRODUCT SNAPSHOT
             product = item.product
 

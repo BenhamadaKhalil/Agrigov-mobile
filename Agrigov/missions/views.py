@@ -3,6 +3,7 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
+from django.db.models import Q
 
 from .models import Mission, MissionDecline
 from .serializers import (
@@ -316,7 +317,7 @@ class MissionDetailView(generics.RetrieveAPIView):
         if user.role == "ADMIN":
             return Mission.objects.all()
         if user.role == "TRANSPORTER":
-            return Mission.objects.filter(transporter=user)
+            return Mission.objects.filter(Q(transporter=user) | Q(wilaya__iexact=getattr(user.transporter_profile, "wilaya", "")))
         if user.role == "FARMER":
             return Mission.objects.filter(order__farm__farmer__user=user)
         if user.role == "BUYER":
