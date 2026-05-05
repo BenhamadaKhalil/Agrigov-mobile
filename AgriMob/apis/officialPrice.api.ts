@@ -9,6 +9,7 @@ export interface MinistryProduct {
 }
 
 export interface OfficialPrice {
+  effective_date: any;
   id: number;
   product: number;
   product_detail: MinistryProduct;

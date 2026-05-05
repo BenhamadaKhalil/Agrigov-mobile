@@ -1,5 +1,7 @@
 from rest_framework import generics, permissions, filters
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db.models import Sum
+from rest_framework.response import Response
 
 from .models import Product, MinistryProduct
 from .serializers import (
@@ -110,6 +112,43 @@ class MyProductsView(generics.ListAPIView):
             .select_related("farm", "category", "ministry_product")
             .prefetch_related("images")
         )
+
+    def list(self, request, *args, **kwargs):
+        response = super().list(request, *args, **kwargs)
+        
+        # Calculate summary statistics
+        user = request.user
+        
+        # Total stock in tons
+        total_stock_kg = Product.objects.filter(farm__farmer=user).aggregate(total=Sum('stock'))['total'] or 0
+        total_stock_tons = float(total_stock_kg) / 1000.0
+        
+        # Avoid circular imports by importing Order inside the method if needed, or we can just import it at the top
+        from orders.models import Order
+        
+        # Pending orders count
+        pending_orders = Order.objects.filter(farm__farmer=user, status='pending').count()
+        
+        # Total revenue
+        total_revenue = Order.objects.filter(farm__farmer=user, status='delivered').aggregate(total=Sum('total_price'))['total'] or 0
+        
+        summary = {
+            "total_revenue": float(total_revenue),
+            "total_stock_tons": total_stock_tons,
+            "pending_orders": pending_orders
+        }
+        
+        # Determine if response data is paginated (has dict) or list
+        if isinstance(response.data, dict) and 'results' in response.data:
+            response.data['summary'] = summary
+        else:
+            # If pagination is turned off, wrap it
+            response.data = {
+                "results": response.data,
+                "summary": summary
+            }
+            
+        return response
 
 
 class CreateProductView(generics.CreateAPIView):

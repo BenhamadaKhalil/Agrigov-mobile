@@ -94,7 +94,34 @@ class DashboardService:
             .values('id', 'ministry_product__name', 'total_sold')
         )
 
+        pending_orders = Order.objects.filter(farm__farmer=user, status='pending').count()
+        total_stock = products.aggregate(total=Sum('stock'))['total'] or 0
+        total_stock_tons = float(total_stock) / 1000.0
+        goal_tons = 500
+        harvest_goal_pct = min(100, int((total_stock_tons / goal_tons) * 100)) if total_stock_tons else 0
+
         return {
+            "stats": {
+                "active_listings": products.count(),
+                "monthly_revenue": float(total_revenue),
+                "pending_orders": pending_orders,
+                "harvest_goal_pct": harvest_goal_pct,
+                "harvest_logged_tons": round(total_stock_tons, 1),
+                "harvest_goal_tons": goal_tons,
+                "rating": round(avg_rating, 2),
+                "member_since_years": 1,
+            },
+            "weather": {
+                "temp_c": 24,
+                "humidity_pct": 60,
+                "rain_chance_pct": 10,
+                "alert": "Optimal Conditions",
+                "alert_detail": "Perfect weather for harvesting"
+            },
+            "tasks": [
+                {"id": "1", "title": "Update Inventory", "sub": "Check low stock products", "done": False},
+                {"id": "2", "title": "Review Orders", "sub": f"You have {pending_orders} pending orders", "done": pending_orders == 0},
+            ],
             "overview": {
                 "total_revenue": total_revenue,
                 "revenue_growth": round(revenue_growth, 2),
