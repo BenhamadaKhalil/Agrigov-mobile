@@ -81,7 +81,12 @@ export default function OrdersScreen() {
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<string>("All");
 
-  const FILTERS = ["All", "In Transit", "Pending", "Delivered"];
+  const FILTERS: Array<{ id: string; label: string; icon: keyof typeof MaterialIcons.glyphMap }> = [
+    { id: "All", label: "All", icon: "view-list" },
+    { id: "In Transit", label: "In Transit", icon: "local-shipping" },
+    { id: "Pending", label: "Pending", icon: "schedule" },
+    { id: "Delivered", label: "Delivered", icon: "check-circle" },
+  ];
 
   React.useEffect(() => {
     // Only fetch orders when the logged-in user is a BUYER
@@ -236,20 +241,26 @@ export default function OrdersScreen() {
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filterRow}
+        style={{ flexGrow: 0 }}
       >
         {FILTERS.map((f) => (
           <TouchableOpacity
-            key={f}
-            style={[styles.filterPill, activeFilter === f && styles.filterPillActive]}
-            onPress={() => setActiveFilter(f)}
+            key={f.id}
+            style={[styles.filterPill, activeFilter === f.id && styles.filterPillActive]}
+            onPress={() => setActiveFilter(f.id)}
           >
+            <MaterialIcons
+              name={f.icon}
+              size={14}
+              color={activeFilter === f.id ? "#047857" : "#9ca3af"}
+            />
             <Text
               style={[
                 styles.filterPillText,
-                activeFilter === f && styles.filterPillTextActive,
+                activeFilter === f.id && styles.filterPillTextActive,
               ]}
             >
-              {f}
+              {f.label}
             </Text>
           </TouchableOpacity>
         ))}
@@ -483,6 +494,9 @@ const styles = StyleSheet.create({
   },
 
   filterPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     backgroundColor: "#fff",
     borderWidth: 0.5,
     borderColor: "#e4efe4",

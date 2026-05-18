@@ -160,6 +160,26 @@ export default function MissionManagementScreen() {
   const upcomingMissions = myMissions.filter(m => ["accepted", "pending"].includes(m.status));
   const completedMissions = myMissions.filter(m => m.status === "delivered");
 
+  const totalEarned = completedMissions.reduce((sum, m) => sum + (Number(m.order_total_price) || 0), 0);
+
+  const getDistance = (lat1: number | null, lon1: number | null, lat2: number | null, lon2: number | null) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return 0;
+    const p = 0.017453292519943295;
+    const c = Math.cos;
+    const a = 0.5 - c((lat2 - lat1) * p)/2 + c(lat1 * p) * c(lat2 * p) * (1 - c((lon2 - lon1) * p))/2;
+    return 12742 * Math.asin(Math.sqrt(a));
+  };
+
+  const totalKm = completedMissions.reduce((sum, m) => sum + getDistance(m.pickup_latitude, m.pickup_longitude, m.delivery_latitude, m.delivery_longitude), 0);
+
+  const onTimeCount = completedMissions.filter(m => {
+    if (!m.accepted_at || !m.delivered_at) return true;
+    const accepted = new Date(m.accepted_at).getTime();
+    const delivered = new Date(m.delivered_at).getTime();
+    return (delivered - accepted) <= 3 * 24 * 60 * 60 * 1000;
+  }).length;
+  const onTimePercentage = completedMissions.length > 0 ? Math.round((onTimeCount / completedMissions.length) * 100) : 100;
+
   const TABS: Array<{ key: TabKey; label: string; count?: number }> = [
     { key: "missions",  label: "My Missions", count: myMissions.length },
     { key: "available", label: "Available", count: availableMissions.length },
@@ -206,7 +226,7 @@ export default function MissionManagementScreen() {
           <View style={styles.statMini}>
             <Text style={styles.statMiniLabel}>Earnings</Text>
             <Text style={styles.statMiniVal}>
-              ${completedMissions.reduce((sum, m) => sum + (Number(m.order_total_price) || 0), 0).toFixed(0)}
+                {totalEarned.toFixed(0)}DA
             </Text>
             <Text style={styles.statMiniSub}>{completedMissions.length} delivered</Text>
           </View>
@@ -393,28 +413,7 @@ export default function MissionManagementScreen() {
             </View>
           )}
 
-          {/* WEEKLY SUMMARY */}
-          <Text style={styles.sectionHead}>Weekly Summary</Text>
-          <View style={styles.weeklySummary}>
-            <Text style={styles.weeklyHeading}>Performance</Text>
-            <View style={styles.weeklyGrid}>
-              {[
-                { label: "Total Earned", value: "$2,400" },
-                { label: "Missions Done", value: String(completedMissions.length) },
-                { label: "Km Driven", value: "312 km" },
-                { label: "On-Time", value: "100%", highlight: true },
-              ].map((s) => (
-                <View key={s.label} style={styles.weeklyCell}>
-                  <Text style={styles.weeklyCellLabel}>{s.label}</Text>
-                  <Text style={[styles.weeklyCellVal, s.highlight && styles.weeklyCellHighlight]}>
-                    {s.value}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
 
-          <View style={{ height: 24 }} />
         </ScrollView>
       )}
 

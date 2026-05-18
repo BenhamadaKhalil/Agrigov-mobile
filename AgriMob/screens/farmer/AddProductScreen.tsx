@@ -73,6 +73,8 @@ export default function AddProductScreen() {
   const [ministryProducts, setMinistryProducts] = useState<any[]>([]);
   const [loadingInitial, setLoadingInitial] = useState(true);
 
+  const [productSearch, setProductSearch] = useState("");
+
   useEffect(() => {
     (async () => {
       try {
@@ -105,7 +107,7 @@ export default function AddProductScreen() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) return Alert.alert("Permission required", "Allow access to your photo library.");
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsMultipleSelection: true,
       quality: 0.8,
       selectionLimit: 5 - images.length,
@@ -189,9 +191,23 @@ export default function AddProductScreen() {
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
           
           <View style={styles.card}>
-            <Text style={styles.fieldLabel}>Official Ministry Product</Text>
+            <View style={styles.productHeaderRow}>
+              <Text style={[styles.fieldLabel, { marginTop: 0 }]}>Official Ministry Product</Text>
+              <View style={styles.miniSearch}>
+                <MaterialIcons name="search" size={14} color="#9ca3af" />
+                <TextInput
+                  style={styles.miniSearchInput}
+                  placeholder="Search products..."
+                  placeholderTextColor="#c4c4c4"
+                  value={productSearch}
+                  onChangeText={setProductSearch}
+                />
+              </View>
+            </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-              {ministryProducts.map((mp) => (
+              {ministryProducts
+                .filter(mp => mp.name.toLowerCase().includes(productSearch.toLowerCase()))
+                .map((mp) => (
                 <TouchableOpacity key={mp.id} style={[styles.chip, form.ministry_product_id === mp.id && styles.chipActive]} onPress={() => update("ministry_product_id")(mp.id)}>
                   <Text style={[styles.chipText, form.ministry_product_id === mp.id && styles.chipTextActive]}>{mp.name}</Text>
                 </TouchableOpacity>
@@ -321,4 +337,7 @@ const styles = StyleSheet.create({
   secondaryText: { fontSize: 14, fontWeight: "700", color: "#374151" },
   primaryBtn: { flex: 2, height: 50, borderRadius: 14, backgroundColor: "#0df20d", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
   primaryText: { fontSize: 14, fontWeight: "800", color: "#065f46" },
+  productHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6, marginTop: 10 },
+  miniSearch: { flexDirection: "row", alignItems: "center", backgroundColor: "#f9faf9", borderRadius: 8, paddingHorizontal: 8, height: 32, borderWidth: 1, borderColor: "#f1f5f1", width: 150 },
+  miniSearchInput: { flex: 1, fontSize: 12, marginLeft: 6, color: "#1a2e1a" },
 });

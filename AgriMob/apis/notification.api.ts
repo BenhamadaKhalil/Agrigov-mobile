@@ -13,6 +13,6 @@ export interface Notification {
 export const notificationApi = {
   getNotifications: () => apiFetch<Notification[]>("/api/notifications/"),
   getUnreadCount: () => apiFetch<{ unread_count: number }>("/api/notifications/unread-count/"),
-  markAllRead: () => apiFetch<{ status: string }>("/api/notifications/read-all/", { method: "POST" }),
-  markRead: (id: number) => apiFetch<{ status: string }>(`/api/notifications/${id}/read/`, { method: "POST" }),
+  markAllRead: () => apiFetch<{ status: string }>("/api/notifications/read-all/", { method: "PATCH" }),
+  markRead: (id: number) => apiFetch<{ status: string }>(`/api/notifications/${id}/read/`, { method: "PATCH" }),
 };

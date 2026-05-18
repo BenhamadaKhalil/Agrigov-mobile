@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   ScrollView,
   StatusBar,
+  Alert,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -59,6 +61,11 @@ export default function ProductCatalogScreen() {
   const [search, setSearch]                 = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const [loading, setLoading]               = useState(true);
+  const [filterVisible, setFilterVisible]   = useState(false);
+  const [sortOrder, setSortOrder]           = useState("none");
+  const [gradeFilter, setGradeFilter]       = useState("All");
+  const [locationFilter, setLocationFilter] = useState("All");
+  const [priceRangeFilter, setPriceRangeFilter] = useState("All");
 
   useEffect(() => {
     (async () => {
@@ -85,6 +92,8 @@ export default function ProductCatalogScreen() {
     })();
   }, []);
 
+  const availableLocations = ["All", ...Array.from(new Set(products.map(p => p.location).filter(Boolean)))].slice(0, 8);
+
   // FIX: trim + lowercase on both sides, also searches description & location
   const filtered = products.filter((p) => {
     const term = search.trim().toLowerCase();
@@ -96,7 +105,19 @@ export default function ProductCatalogScreen() {
     const matchCat =
       activeCategory === "All" ||
       p.category.trim().toLowerCase() === activeCategory.trim().toLowerCase();
-    return matchSearch && matchCat;
+    const matchGrade = gradeFilter === "All" || p.grade === gradeFilter;
+    const matchLoc = locationFilter === "All" || p.location === locationFilter;
+    
+    let matchPrice = true;
+    if (priceRangeFilter === "Under 100") matchPrice = p.price < 100;
+    else if (priceRangeFilter === "100 - 500") matchPrice = p.price >= 100 && p.price <= 500;
+    else if (priceRangeFilter === "500+") matchPrice = p.price > 500;
+
+    return matchSearch && matchCat && matchGrade && matchLoc && matchPrice;
+  }).sort((a, b) => {
+    if (sortOrder === "asc") return a.price - b.price;
+    if (sortOrder === "desc") return b.price - a.price;
+    return 0;
   });
 
   const handleCardPress = useCallback(
@@ -231,12 +252,16 @@ export default function ProductCatalogScreen() {
           {filtered.length === 1 ? "product" : "products"}
           {activeCategory !== "All" ? ` in ${activeCategory}` : ""}
         </Text>
-        {(search.trim().length > 0 || activeCategory !== "All") && (
+        {(search.trim().length > 0 || activeCategory !== "All" || gradeFilter !== "All" || sortOrder !== "none" || locationFilter !== "All" || priceRangeFilter !== "All") && (
           <TouchableOpacity
             style={styles.clearFiltersBtn}
             onPress={() => {
               setSearch("");
               setActiveCategory("All");
+              setGradeFilter("All");
+              setSortOrder("none");
+              setLocationFilter("All");
+              setPriceRangeFilter("All");
             }}
           >
             <MaterialIcons name="filter-alt-off" size={13} color="#ef4444" />
@@ -280,7 +305,10 @@ export default function ProductCatalogScreen() {
           <View style={styles.productCountBadge}>
             <Text style={styles.productCountText}>{products.length}</Text>
           </View>
-          <TouchableOpacity style={styles.filterIconBtn}>
+          <TouchableOpacity 
+            style={styles.filterIconBtn}
+            onPress={() => setFilterVisible(true)}
+          >
             <MaterialIcons name="tune" size={18} color="#047857" />
           </TouchableOpacity>
         </View>
@@ -319,6 +347,94 @@ export default function ProductCatalogScreen() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       />
+
+      {/* FILTER MODAL */}
+      <Modal
+        visible={filterVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setFilterVisible(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPressOut={() => setFilterVisible(false)}
+        >
+          <TouchableOpacity activeOpacity={1} style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Filter & Sort</Text>
+              <TouchableOpacity onPress={() => setFilterVisible(false)}>
+                <MaterialIcons name="close" size={24} color="#1a2e1a" />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.modalSectionTitle}>Sort by Price</Text>
+              <View style={styles.modalRow}>
+                {[
+                  { id: "none", label: "Default" },
+                  { id: "asc", label: "Low to High" },
+                  { id: "desc", label: "High to Low" }
+                ].map((s) => (
+                  <TouchableOpacity
+                    key={s.id}
+                    style={[styles.modalChip, sortOrder === s.id && styles.modalChipActive]}
+                    onPress={() => setSortOrder(s.id)}
+                  >
+                    <Text style={[styles.modalChipText, sortOrder === s.id && styles.modalChipTextActive]}>{s.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.modalSectionTitle}>Price Range</Text>
+              <View style={styles.modalRow}>
+                {["All", "Under 100", "100 - 500", "500+"].map((p) => (
+                  <TouchableOpacity
+                    key={p}
+                    style={[styles.modalChip, priceRangeFilter === p && styles.modalChipActive]}
+                    onPress={() => setPriceRangeFilter(p)}
+                  >
+                    <Text style={[styles.modalChipText, priceRangeFilter === p && styles.modalChipTextActive]}>{p}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.modalSectionTitle}>Location</Text>
+              <View style={styles.modalRow}>
+                {availableLocations.map((loc) => (
+                  <TouchableOpacity
+                    key={loc}
+                    style={[styles.modalChip, locationFilter === loc && styles.modalChipActive]}
+                    onPress={() => setLocationFilter(loc)}
+                  >
+                    <Text style={[styles.modalChipText, locationFilter === loc && styles.modalChipTextActive]}>{loc}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.modalSectionTitle}>Grade</Text>
+              <View style={styles.modalRow}>
+                {["All", "A", "B", "C"].map((g) => (
+                  <TouchableOpacity
+                    key={g}
+                    style={[styles.modalChip, gradeFilter === g && styles.modalChipActive]}
+                    onPress={() => setGradeFilter(g)}
+                  >
+                    <Text style={[styles.modalChipText, gradeFilter === g && styles.modalChipTextActive]}>{g}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              
+              <TouchableOpacity 
+                style={styles.modalApplyBtn}
+                onPress={() => setFilterVisible(false)}
+              >
+                <Text style={styles.modalApplyText}>Show Results</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -389,4 +505,18 @@ const styles = StyleSheet.create({
   emptySub:       { fontSize: 13, color: "#9ca3af", textAlign: "center", fontWeight: "500" },
   emptyResetBtn:  { marginTop: 6, backgroundColor: "#d1fae5", borderRadius: 20, paddingHorizontal: 18, paddingVertical: 9 },
   emptyResetText: { fontSize: 13, fontWeight: "800", color: "#047857" },
+
+  // MODAL
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", paddingHorizontal: 20 },
+  modalContent: { backgroundColor: "#fff", borderRadius: 24, padding: 24, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 5, maxHeight: "80%" },
+  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
+  modalTitle: { fontSize: 20, fontWeight: "800", color: "#1a2e1a", letterSpacing: -0.5 },
+  modalSectionTitle: { fontSize: 13, fontWeight: "700", color: "#9ca3af", marginBottom: 12, marginTop: 16, textTransform: "uppercase", letterSpacing: 0.5 },
+  modalRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  modalChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: "#f5f8f5", borderWidth: 1, borderColor: "#e4efe4" },
+  modalChipActive: { backgroundColor: "#d1fae5", borderColor: "#0df20d" },
+  modalChipText: { fontSize: 13, fontWeight: "700", color: "#6b7280" },
+  modalChipTextActive: { color: "#047857" },
+  modalApplyBtn: { marginTop: 30, backgroundColor: "#047857", paddingVertical: 14, borderRadius: 16, alignItems: "center" },
+  modalApplyText: { color: "#fff", fontSize: 15, fontWeight: "800" },
 });

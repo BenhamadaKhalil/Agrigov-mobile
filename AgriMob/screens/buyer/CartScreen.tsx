@@ -75,9 +75,8 @@ export default function CartScreen() {
     () => cart.reduce((sum, i) => sum + parseFloat(i.total_price || 0), 0),
     [cart],
   );
-  const transport = 45000;
   const levy = subtotal * 0.01;
-  const total = subtotal + transport + levy;
+  const total = subtotal + levy;
 
   const renderItem = ({ item }: any) => {
     const product = item.product || {};
@@ -198,11 +197,6 @@ export default function CartScreen() {
                 Subtotal ({cart.length} item{cart.length !== 1 ? "s" : ""})
               </Text>
               <Text style={styles.summaryVal}>{formatDZD(subtotal)}</Text>
-            </View>
-
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Transport (estimated)</Text>
-              <Text style={styles.summaryVal}>{formatDZD(transport)}</Text>
             </View>
 
             <View style={styles.summaryRow}>
