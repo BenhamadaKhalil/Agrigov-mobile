@@ -10,6 +10,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -29,6 +30,7 @@ export interface InventoryProduct {
   price_per_unit: number;
   status: "in_stock" | "low_stock" | "out_of_stock";
   emoji?: string;
+  images?: { id: number; image: string }[];
 }
 
 interface InventorySummary {
@@ -67,7 +69,11 @@ const ProductCard = ({
   return (
     <View style={styles.productCard}>
       <View style={styles.emojiBox}>
-        <Text style={styles.emoji}>{productEmoji(item)}</Text>
+        {item.images && item.images.length > 0 ? (
+          <Image source={{ uri: item.images[0].image }} style={{ width: '100%', height: '100%', resizeMode: 'cover' }} />
+        ) : (
+          <Text style={styles.emoji}>{productEmoji(item)}</Text>
+        )}
       </View>
       <View style={styles.productBody}>
         <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
@@ -116,6 +122,7 @@ export default function InventoryScreen() {
         unit: "kg",
         price_per_unit: parseFloat(p.unit_price || "0"),
         status: p.in_stock ? "in_stock" : "out_of_stock",
+        images: p.images || [],
       }));
       setProducts(mapped);
       if (data?.summary) setSummary(data.summary);
