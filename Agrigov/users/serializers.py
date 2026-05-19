@@ -42,11 +42,15 @@ class MeSerializer(serializers.Serializer):
 
         if user.role == User.ROLE_FARMER:
             from farms.models import Farm
+            from orders.models import Order
             data["farms_count"] = Farm.objects.filter(farmer=user).count()
+            data["orders_count"] = Order.objects.filter(farm__farmer=user).count()
 
         if user.role == User.ROLE_TRANSPORTER:
             from vehicules.models import Vehicle
+            from missions.models import DeliveryMission
             data["vehicles_count"] = Vehicle.objects.filter(transporter=user).count()
+            data["missions_count"] = DeliveryMission.objects.filter(transporter=user).count()
 
         if user.role == User.ROLE_BUYER:
             from orders.models import Order

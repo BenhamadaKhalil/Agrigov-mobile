@@ -483,9 +483,9 @@ const ProfileScreen = () => {
             />
             <View style={styles.heroStatDivider} />
             <HeroStat
-              icon="shopping-bag"
-              value={extras?.orders_count ?? 0}
-              label="Orders"
+              icon={role === "TRANSPORTER" ? "assignment" : "shopping-bag"}
+              value={role === "TRANSPORTER" ? (extras?.missions_count ?? 0) : (extras?.orders_count ?? 0)}
+              label={role === "TRANSPORTER" ? "Missions" : "Orders"}
             />
             <View style={styles.heroStatDivider} />
             <HeroStat
