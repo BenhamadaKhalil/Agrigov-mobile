@@ -1,6 +1,6 @@
 // screens/EditProfileScreen.tsx
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -74,6 +74,7 @@ export default function EditProfileScreen() {
 
   const [saving, setSaving] = useState(false);
   const [selectedImage, setSelectedImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string, string>>({
     fullName:  user?.username ?? "",
     username:  user?.username ? `@${user.username}` : "",
@@ -84,6 +85,22 @@ export default function EditProfileScreen() {
     bio:       "",
     specialty: "",
   });
+
+  // Fetch existing profile image on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res: any = await profileApi.me();
+        const meData = res?.data ?? res;
+        const imgUrl = meData?.profile?.profile_image;
+        if (imgUrl && typeof imgUrl === "string" && imgUrl.length > 0) {
+          setExistingImageUrl(imgUrl);
+        }
+      } catch (e) {
+        // Silently fail — we'll just show initials
+      }
+    })();
+  }, []);
 
   const update = (key: string) => (val: string) =>
     setForm((prev) => ({ ...prev, [key]: val }));
@@ -166,6 +183,8 @@ export default function EditProfileScreen() {
             <View style={styles.avatarCircle}>
               {selectedImage ? (
                 <Image source={{ uri: selectedImage.uri }} style={styles.avatarImage} />
+              ) : existingImageUrl ? (
+                <Image source={{ uri: existingImageUrl }} style={styles.avatarImage} />
               ) : (
                 <Text style={styles.avatarInitials}>
                   {(user?.username ?? user?.email ?? "U").slice(0, 2).toUpperCase()}

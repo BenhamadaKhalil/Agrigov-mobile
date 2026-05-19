@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Modal,
   Alert,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -381,6 +382,7 @@ const ProfileScreen = () => {
   const roleStat = getRoleStat(role, extras);
   const displayName = user?.username ?? user?.email ?? "User";
   const initials = displayName.slice(0, 2).toUpperCase();
+  const profileImageUrl: string | null = meData?.profile?.profile_image ?? null;
 
   // Compute real stats with proper formatting
   const ratingValue = extras?.rating ?? 0;
@@ -460,7 +462,11 @@ const ProfileScreen = () => {
 
           <View style={styles.avatarRow}>
             <View style={styles.avatarCircle}>
-              <Text style={styles.avatarInitials}>{initials}</Text>
+              {profileImageUrl ? (
+                <Image source={{ uri: profileImageUrl }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarInitials}>{initials}</Text>
+              )}
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.heroName}>{displayName}</Text>
@@ -1036,6 +1042,13 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: "rgba(255,255,255,0.25)",
     flexShrink: 0,
+    overflow: "hidden",
+  },
+
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
   },
 
   avatarInitials: {
