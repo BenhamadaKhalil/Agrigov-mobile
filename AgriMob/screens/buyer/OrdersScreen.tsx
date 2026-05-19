@@ -241,7 +241,7 @@ export default function OrdersScreen() {
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filterRow}
-        style={{ flexGrow: 0 }}
+        style={{ flexGrow: 0, flexShrink: 0, minHeight: 36 }}
       >
         {FILTERS.map((f) => (
           <TouchableOpacity
@@ -489,8 +489,9 @@ const styles = StyleSheet.create({
   // ── FILTER PILLS
   filterRow: {
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 8,
     gap: 8,
+    marginBottom: 8,
   },
 
   filterPill: {
