@@ -81,7 +81,7 @@ const ProductCard = ({
           {item.quantity_kg} {item.unit}
         </Text>
         <Text style={styles.productMeta}>
-          ${item.price_per_unit.toFixed(2)}/{item.unit}
+          DZD {item.price_per_unit.toFixed(2)}/{item.unit}
         </Text>
         <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
           <Text style={[styles.statusText, { color: badge.text }]}>
@@ -147,7 +147,7 @@ export default function InventoryScreen() {
     {
       label: "Revenue",
       value: summary
-        ? `$${(summary.total_revenue / 1000).toFixed(1)}k`
+        ? `DZD${(summary.total_revenue / 1000).toFixed(1)}k`
         : "—",
     },
     {

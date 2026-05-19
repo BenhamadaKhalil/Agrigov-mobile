@@ -177,7 +177,7 @@ export default function EditProductScreen() {
             </Field>
             {errors.stock && <Text style={styles.errMsg}>{errors.stock}</Text>}
 
-            <Field label="Unit Price" icon="attach-money">
+            <Field label="Unit Price (DZD)" icon="payments">
               <TextInput style={[styles.input, errors.unit_price && styles.inputError]} placeholder="0.00" placeholderTextColor="#c4c4c4" keyboardType="numeric" value={form.unit_price} onChangeText={update("unit_price")} />
             </Field>
             {errors.unit_price && <Text style={styles.errMsg}>{errors.unit_price}</Text>}
