@@ -21,7 +21,7 @@ class Order(models.Model):
         'cancelled': [],
     }
     STATUS_PERMISSIONS = {
-        'FARMER': ['confirmed'],
+        'FARMER': ['confirmed', 'cancelled'],
         'BUYER': ['cancelled'],
         'TRANSPORTER': ['shipped', 'delivered'],
         'ADMIN': ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'],

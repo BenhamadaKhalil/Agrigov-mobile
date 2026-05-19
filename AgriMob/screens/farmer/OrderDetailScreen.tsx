@@ -154,6 +154,29 @@ export default function OrderDetailScreen() {
     }
   };
 
+  const handleCancelOrder = async () => {
+    if (!order) return;
+    Alert.alert("Cancel Order", "Are you sure you want to cancel this order?", [
+      { text: "No" },
+      {
+        text: "Yes, Cancel",
+        style: "destructive",
+        onPress: async () => {
+          setActionLoading(true);
+          try {
+            await orderApi.updateStatus(order.id, "cancelled" as any);
+            Alert.alert("Done", "Order cancelled.");
+            fetchData();
+          } catch {
+            Alert.alert("Error", "Could not cancel order.");
+          } finally {
+            setActionLoading(false);
+          }
+        },
+      },
+    ]);
+  };
+
   const handleCreateMission = async () => {
     if (!order) return;
     setActionLoading(true);
@@ -221,6 +244,7 @@ export default function OrderDetailScreen() {
 
   const cfg = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.pending;
   const canConfirm = order.allowed_statuses?.includes("confirmed");
+  const canCancelOrder = order.allowed_statuses?.includes("cancelled");
   const canCreateMission = order.status === "confirmed" && !mission;
   const canCancelMission = mission && ["pending", "accepted"].includes(mission.status);
 
@@ -524,6 +548,22 @@ export default function OrderDetailScreen() {
                 <Text style={styles.createMissionText}>Create Mission</Text>
               </TouchableOpacity>
             )}
+            {canCancelOrder && (
+              <TouchableOpacity
+                style={styles.cancelOrderBtn}
+                onPress={handleCancelOrder}
+                disabled={actionLoading}
+              >
+                {actionLoading ? (
+                  <ActivityIndicator size="small" color="#b91c1c" />
+                ) : (
+                  <>
+                    <MaterialIcons name="cancel" size={18} color="#b91c1c" />
+                    <Text style={styles.cancelOrderText}>Cancel Order</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
 
           <View style={{ height: 40 }} />
@@ -747,4 +787,10 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   createMissionText: { fontSize: 14, fontWeight: "700", color: "#047857" },
+  cancelOrderBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 8, backgroundColor: "#fee2e2", borderRadius: 12,
+    paddingVertical: 14,
+  },
+  cancelOrderText: { fontSize: 14, fontWeight: "700", color: "#b91c1c" },
 });
