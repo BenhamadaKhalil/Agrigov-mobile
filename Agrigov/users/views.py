@@ -120,6 +120,20 @@ class MeView(APIView):
             status=status.HTTP_200_OK
         )
 
+    def patch(self, request):
+        serializer = UserSerializer(request.user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {
+                    "status": "success",
+                    "code": status.HTTP_200_OK,
+                    "data": serializer.data
+                },
+                status=status.HTTP_200_OK
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class FarmerProfileView(APIView):

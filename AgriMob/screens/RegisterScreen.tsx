@@ -8,6 +8,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -17,6 +18,9 @@ import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext";
 import { RegisterRole, WILAYAS, VEHICLE_TYPES } from "./resgister";
 import { apiFetch } from "../apis/api";
+import * as ImagePicker from "expo-image-picker";
+
+type ImageAsset = ImagePicker.ImagePickerAsset;
 
 type NavProp = NativeStackNavigationProp<AuthStackParamList, "Register">;
 type Step = 1 | 2 | 3;
@@ -107,6 +111,18 @@ export default function RegisterScreen() {
   const [vehicleYear, setVehicleYear] = useState("");
   const [vehicleCapacity, setVehicleCapacity] = useState("");
 
+  // Step 3 — Document images
+  const [profileImage, setProfileImage] = useState<ImageAsset | null>(null);
+
+  // Farmer
+  const [farmerCardImage, setFarmerCardImage] = useState<ImageAsset | null>(null);
+  const [nationalIdImage, setNationalIdImage] = useState<ImageAsset | null>(null);
+  // Transporter
+  const [driverLicenseImage, setDriverLicenseImage] = useState<ImageAsset | null>(null);
+  const [greyCardImage, setGreyCardImage] = useState<ImageAsset | null>(null);
+  // Buyer
+  const [businessLicenseImage, setBusinessLicenseImage] = useState<ImageAsset | null>(null);
+
   const { register } = useAuth();
   const navigation = useNavigation<NavProp>();
 
@@ -161,20 +177,20 @@ export default function RegisterScreen() {
         e.farmSize = "Enter a valid number";
 
       if (!address.trim()) e.address = "Address is required";
+
+      if (!farmerCardImage) e.farmerCardImage = "Farmer card photo is required";
+      if (!nationalIdImage) e.nationalIdImage = "National ID photo is required";
     }
 
     if (role === "BUYER") {
-      // BUG FIX: BUYER profile step previously had no age field rendered but
-      // the old validation block was checking 'age' (shared state) which was
-      // always empty → BUYER registration always failed at step 3.
-      // Age for buyers is optional — no validation needed here.
-      // If your backend requires a buyer profile age, uncomment below:
-      // if (!buyerAge.trim()) e.buyerAge = "Age is required";
+      if (!buyerAge.trim()) e.buyerAge = "Age is required";
+      else if (isNaN(Number(buyerAge)) || Number(buyerAge) < 18)
+        e.buyerAge = "Must be 18 or older";
+
+      if (!businessLicenseImage) e.businessLicenseImage = "Business license photo is required";
     }
 
     if (role === "TRANSPORTER") {
-      // BUG FIX: Transporter used the same 'age' state as Farmer which caused
-      // cross-contamination if the user switched roles. Now using separate state.
       if (!transporterAge.trim()) e.transporterAge = "Age is required";
       else if (isNaN(Number(transporterAge)) || Number(transporterAge) < 18)
         e.transporterAge = "Must be 18 or older";
@@ -193,10 +209,33 @@ export default function RegisterScreen() {
       if (!vehicleCapacity.trim()) e.vehicleCapacity = "Capacity is required";
       else if (isNaN(Number(vehicleCapacity)) || Number(vehicleCapacity) <= 0)
         e.vehicleCapacity = "Enter a valid capacity";
+
+      if (!driverLicenseImage) e.driverLicenseImage = "Driver license photo is required";
+      if (!greyCardImage) e.greyCardImage = "Grey card photo is required";
     }
 
     setErrors(e);
     return Object.keys(e).length === 0;
+  };
+
+  // ─── Image picker helper ─────────────────────────────────────────────────────
+
+  const pickImage = async (
+    setter: (asset: ImageAsset) => void
+  ): Promise<void> => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Please allow access to your photo library.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      setter(result.assets[0]);
+    }
   };
 
   // ─── Profile creation after registration ─────────────────────────────────────
@@ -209,53 +248,101 @@ export default function RegisterScreen() {
 
   const createProfile = async (role: RegisterRole): Promise<void> => {
     if (role === "FARMER") {
+      const fd = new FormData();
+      fd.append("age", String(parseInt(farmerAge)));
+      fd.append("wilaya", wilaya.trim());
+      fd.append("baladiya", baladiya.trim());
+      fd.append("farm_size", String(parseFloat(farmSize)));
+      fd.append("farm_name", farmName.trim());
+      fd.append("address", address.trim());
+      if (profileImage) {
+        fd.append("profile_image_upload", {
+          uri: profileImage.uri,
+          name: profileImage.fileName ?? "profile.jpg",
+          type: profileImage.mimeType ?? "image/jpeg",
+        } as any);
+      }
+      if (farmerCardImage) {
+        fd.append("farmer_card_image_upload", {
+          uri: farmerCardImage.uri,
+          name: farmerCardImage.fileName ?? "farmer_card.jpg",
+          type: farmerCardImage.mimeType ?? "image/jpeg",
+        } as any);
+      }
+      if (nationalIdImage) {
+        fd.append("national_id_image_upload", {
+          uri: nationalIdImage.uri,
+          name: nationalIdImage.fileName ?? "national_id.jpg",
+          type: nationalIdImage.mimeType ?? "image/jpeg",
+        } as any);
+      }
       await apiFetch("/api/users/auth/farmer-profile/", {
         method: "POST",
-        body: JSON.stringify({
-          age: parseInt(farmerAge),
-          wilaya: wilaya.trim(),
-          baladiya: baladiya.trim(),
-          farm_size: parseFloat(farmSize),
-          address: address.trim(),
-        }),
+        body: fd,
       });
     }
 
     if (role === "BUYER") {
+      const fd = new FormData();
+      fd.append("age", String(buyerAge ? parseInt(buyerAge) : 18));
+      if (profileImage) {
+        fd.append("profile_image_upload", {
+          uri: profileImage.uri,
+          name: profileImage.fileName ?? "profile.jpg",
+          type: profileImage.mimeType ?? "image/jpeg",
+        } as any);
+      }
+      if (businessLicenseImage) {
+        fd.append("bussiness_license_image_upload", {
+          uri: businessLicenseImage.uri,
+          name: businessLicenseImage.fileName ?? "business_license.jpg",
+          type: businessLicenseImage.mimeType ?? "image/jpeg",
+        } as any);
+      }
       await apiFetch("/api/users/auth/buyer-profile/", {
         method: "POST",
-        body: JSON.stringify({
-          age: buyerAge ? parseInt(buyerAge) : 18,
-        }),
+        body: fd,
       });
     }
 
     if (role === "TRANSPORTER") {
+      const fd = new FormData();
+      fd.append("age", String(parseInt(transporterAge)));
+      fd.append("vehicle_type", vehicleType.trim());
+      fd.append("vehicle_model", vehicleModel.trim());
+      fd.append("vehicle_year", String(parseInt(vehicleYear)));
+      fd.append("vehicle_capacity", String(parseFloat(vehicleCapacity)));
+      if (profileImage) {
+        fd.append("profile_image", {
+          uri: profileImage.uri,
+          name: profileImage.fileName ?? "profile.jpg",
+          type: profileImage.mimeType ?? "image/jpeg",
+        } as any);
+      }
+      if (driverLicenseImage) {
+        fd.append("driver_license_image", {
+          uri: driverLicenseImage.uri,
+          name: driverLicenseImage.fileName ?? "driver_license.jpg",
+          type: driverLicenseImage.mimeType ?? "image/jpeg",
+        } as any);
+      }
+      if (greyCardImage) {
+        fd.append("grey_card_image", {
+          uri: greyCardImage.uri,
+          name: greyCardImage.fileName ?? "grey_card.jpg",
+          type: greyCardImage.mimeType ?? "image/jpeg",
+        } as any);
+      }
       await apiFetch("/api/users/auth/transporter-profile/", {
         method: "POST",
-        body: JSON.stringify({
-          age: parseInt(transporterAge),
-          vehicule_type: vehicleType.trim(),
-          vehicule_model: vehicleModel.trim(),
-          vehicule_year: parseInt(vehicleYear),
-          vehicule_capacity: parseFloat(vehicleCapacity),
-        }),
+        body: fd,
       });
     }
   };
 
-  const createFarm = async (): Promise<void> => {
-    await apiFetch("/api/farms/", {
-      method: "POST",
-      body: JSON.stringify({
-        name: farmName.trim(),
-        wilaya: wilaya.trim(),
-        baladiya: baladiya.trim(),
-        farm_size: parseFloat(farmSize),
-        address: address.trim(),
-      }),
-    });
-  };
+  // Farm is now created by the farmer-profile serializer on the backend (via farm_name field).
+  // Keeping this as a no-op to avoid breaking existing call sites.
+  const createFarm = async (): Promise<void> => {};
 
   // ─── Submit ──────────────────────────────────────────────────────────────────
 
@@ -562,17 +649,8 @@ export default function RegisterScreen() {
       {/* ── BUYER ── */}
       {role === "BUYER" && (
         <>
-          <View style={styles.infoBox}>
-            <MaterialIcons name="storefront" size={18} color="#047857" />
-            <Text style={styles.infoText}>
-              Your buyer profile will be created automatically. You can add more
-              details from your profile settings after registration.
-            </Text>
-          </View>
-
-          {/* Optional age for buyers */}
           <FormField
-            label="Age (optional)"
+            label="Age"
             icon="cake"
             placeholder="Your age"
             value={buyerAge}
@@ -582,6 +660,23 @@ export default function RegisterScreen() {
             }}
             error={errors.buyerAge}
             keyboardType="numeric"
+          />
+
+          <ImageUploadField
+            label="Profile Photo (Optional)"
+            description="Your public profile picture"
+            icon="account-circle"
+            image={profileImage}
+            onPick={() => pickImage(setProfileImage)}
+          />
+
+          <ImageUploadField
+            label="Business License"
+            description="Photo of your business/commercial license"
+            icon="business"
+            image={businessLicenseImage}
+            onPick={() => pickImage(setBusinessLicenseImage)}
+            error={errors.businessLicenseImage}
           />
         </>
       )}
@@ -656,6 +751,32 @@ export default function RegisterScreen() {
               clearError("address");
             }}
             error={errors.address}
+          />
+
+          <ImageUploadField
+            label="Profile Photo (Optional)"
+            description="Your public profile picture"
+            icon="account-circle"
+            image={profileImage}
+            onPick={() => pickImage(setProfileImage)}
+          />
+
+          <ImageUploadField
+            label="Farmer Card"
+            description="Photo of your official farmer identification card"
+            icon="badge"
+            image={farmerCardImage}
+            onPick={() => pickImage(setFarmerCardImage)}
+            error={errors.farmerCardImage}
+          />
+
+          <ImageUploadField
+            label="National ID"
+            description="Photo of your national identity document"
+            icon="credit-card"
+            image={nationalIdImage}
+            onPick={() => pickImage(setNationalIdImage)}
+            error={errors.nationalIdImage}
           />
         </>
       )}
@@ -752,16 +873,34 @@ export default function RegisterScreen() {
               />
             </View>
           </View>
+
+          <ImageUploadField
+            label="Profile Photo (Optional)"
+            description="Your public profile picture"
+            icon="account-circle"
+            image={profileImage}
+            onPick={() => pickImage(setProfileImage)}
+          />
+
+          <ImageUploadField
+            label="Driver License"
+            description="Photo of your valid driver's license"
+            icon="drive-eta"
+            image={driverLicenseImage}
+            onPick={() => pickImage(setDriverLicenseImage)}
+            error={errors.driverLicenseImage}
+          />
+
+          <ImageUploadField
+            label="Grey Card (Vehicle Registration)"
+            description="Photo of your vehicle's grey registration card"
+            icon="description"
+            image={greyCardImage}
+            onPick={() => pickImage(setGreyCardImage)}
+            error={errors.greyCardImage}
+          />
         </>
       )}
-
-      <View style={styles.infoBox}>
-        <MaterialIcons name="info-outline" size={16} color="#9ca3af" />
-        <Text style={styles.infoText}>
-          Document upload (license, ID card) is available after registration in
-          your profile settings.
-        </Text>
-      </View>
 
       <View style={styles.btnRow}>
         <TouchableOpacity
@@ -887,7 +1026,70 @@ function FormField({
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── ImageUploadField helper ───────────────────────────────────────────────────
+
+interface ImageUploadFieldProps {
+  label: string;
+  description: string;
+  icon: React.ComponentProps<typeof MaterialIcons>["name"];
+  image: ImageAsset | null;
+  onPick: () => void;
+  error?: string;
+}
+
+function ImageUploadField({
+  label,
+  description,
+  icon,
+  image,
+  onPick,
+  error,
+}: ImageUploadFieldProps) {
+  return (
+    <View style={{ marginTop: 10, marginBottom: 4 }}>
+      <Text style={styles.label}>{label}</Text>
+      <TouchableOpacity
+        style={[
+          styles.imageUploadBtn,
+          image ? styles.imageUploadBtnDone : undefined,
+          error ? styles.imageUploadBtnError : undefined,
+        ]}
+        onPress={onPick}
+        activeOpacity={0.75}
+      >
+        {image ? (
+          <>
+            <Image
+              source={{ uri: image.uri }}
+              style={styles.imageUploadThumb}
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.imageUploadDoneText}>Photo selected ✓</Text>
+              <Text style={styles.imageUploadDesc} numberOfLines={1}>
+                {image.fileName ?? "Selected image"}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={onPick} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <MaterialIcons name="edit" size={16} color="#047857" />
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <View style={styles.imageUploadIconBox}>
+              <MaterialIcons name={icon} size={20} color="#9ca3af" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.imageUploadLabel}>Tap to upload</Text>
+              <Text style={styles.imageUploadDesc}>{description}</Text>
+            </View>
+            <MaterialIcons name="add-photo-alternate" size={20} color="#9ca3af" />
+          </>
+        )}
+      </TouchableOpacity>
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -1298,5 +1500,67 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 8,
     marginTop: 4,
+  },
+
+  // ── IMAGE UPLOAD
+  imageUploadBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#f8faf8",
+    borderWidth: 1.5,
+    borderColor: "#e4efe4",
+    borderRadius: 12,
+    borderStyle: "dashed",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+
+  imageUploadBtnDone: {
+    borderStyle: "solid",
+    borderColor: "#a7f3d0",
+    backgroundColor: "#f0fdf4",
+  },
+
+  imageUploadBtnError: {
+    borderColor: "#ef4444",
+    backgroundColor: "#fff5f5",
+  },
+
+  imageUploadIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "#f3f4f6",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+
+  imageUploadThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    flexShrink: 0,
+  },
+
+  imageUploadLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#374151",
+    marginBottom: 2,
+  },
+
+  imageUploadDoneText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#047857",
+    marginBottom: 2,
+  },
+
+  imageUploadDesc: {
+    fontSize: 11,
+    color: "#9ca3af",
+    fontWeight: "500",
   },
 });

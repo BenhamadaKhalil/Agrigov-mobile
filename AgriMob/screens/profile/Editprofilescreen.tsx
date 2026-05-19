@@ -10,10 +10,12 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../../context/AuthContext";
 import { profileApi } from "../../apis/profile.api";
 
@@ -71,6 +73,7 @@ export default function EditProfileScreen() {
   const { user } = useAuth();
 
   const [saving, setSaving] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [form, setForm] = useState<Record<string, string>>({
     fullName:  user?.username ?? "",
     username:  user?.username ? `@${user.username}` : "",
@@ -85,6 +88,25 @@ export default function EditProfileScreen() {
   const update = (key: string) => (val: string) =>
     setForm((prev) => ({ ...prev, [key]: val }));
 
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission Required", "Please allow access to your photo library to choose a profile picture.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setSelectedImage(result.assets[0]);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -95,6 +117,16 @@ export default function EditProfileScreen() {
       if (form.phone)     payload.phone    = form.phone;
 
       await profileApi.update(payload);
+
+      if (selectedImage && user?.role) {
+        await profileApi.updateImage(
+          user.role,
+          selectedImage.uri,
+          selectedImage.mimeType || "image/jpeg",
+          selectedImage.fileName || "profile.jpg"
+        );
+      }
+
       navigation.goBack();
     } catch (e) {
       Alert.alert("Error", "Could not save changes. Please try again.");
@@ -130,16 +162,20 @@ export default function EditProfileScreen() {
 
         {/* AVATAR */}
         <View style={styles.avatarSection}>
-          <View style={styles.avatarWrap}>
+          <TouchableOpacity onPress={pickImage} style={styles.avatarWrap}>
             <View style={styles.avatarCircle}>
-              <Text style={styles.avatarInitials}>
-                {(user?.username ?? user?.email ?? "U").slice(0, 2).toUpperCase()}
-              </Text>
+              {selectedImage ? (
+                <Image source={{ uri: selectedImage.uri }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarInitials}>
+                  {(user?.username ?? user?.email ?? "U").slice(0, 2).toUpperCase()}
+                </Text>
+              )}
             </View>
             <View style={styles.editBadge}>
               <MaterialIcons name="edit" size={12} color="#065f46" />
             </View>
-          </View>
+          </TouchableOpacity>
           <Text style={styles.changePhotoText}>Change Photo</Text>
         </View>
 
@@ -247,6 +283,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 3,
     borderColor: "#e4efe4",
+    overflow: "hidden",
+  },
+
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
   },
 
   avatarInitials: {
