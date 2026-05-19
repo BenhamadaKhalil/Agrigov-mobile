@@ -3,7 +3,7 @@ import { BASE_URL } from "./config";
 import { storage } from "./storage";
 
 export interface CheckoutPayload {
-  transporter_id: number;
+  transporter_id?: number;
   delivery_address: string;
   wilaya: string;
   baladiya: string;

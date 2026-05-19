@@ -64,7 +64,7 @@ export default function CheckoutScreen() {
       const fetchProfile = async () => {
         try {
           const { profileApi } = await import("../../apis/profile.api");
-          const profile = await profileApi.me();
+          const profile: any = await profileApi.me();
           setAddress({
             fullName: profile?.full_name || profile?.username || "",
             wilaya: profile?.wilaya || "",
